@@ -23,20 +23,27 @@ class SimpleSystem:
     timeout: float
     logger: logging.Logger
 
+    def process_(self, name: str, start, log=True):
+        yield self.env.timeout(self.process_time)
+        if log:
+            log = LogProcess(name=name, time=self.env.now, result='ok', latency=self.env.now - start)
+            self.logger.info(json.dumps(log.__dict__))
+
+
     def process_request(self, name: str):
         if self.queue.resource.count == self.queue.capacity:
             log = LogProcess(name=name, time=self.env.now, result='fail', latency=0)
             self.logger.info(json.dumps(log.__dict__))
-        now = self.env.now
+        start = self.env.now
         with self.queue.resource.request() as req:
-            results = yield req | self.env.timeout(self.timeout - self.process_time)
+            results = yield req | self.env.timeout(self.timeout)
             if req in results:
-                yield self.env.timeout(self.process_time)
-                log = LogProcess(name=name, time=self.env.now, result='ok', latency=self.env.now - now)
-                self.logger.info(json.dumps(log.__dict__))
+                yield from self.process_(name, start)
             else:
                 log = LogProcess(name=name, time=self.env.now, result='fail', latency=self.timeout)
                 self.logger.info(json.dumps(log.__dict__))
+                yield req
+                yield from self.process_(name, start, False)
 
 @dataclass
 class SimpleUser:

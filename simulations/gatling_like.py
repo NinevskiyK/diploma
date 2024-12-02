@@ -125,12 +125,12 @@ def draw_graph(notes, events, info, agg_by=30_000):
 
     latencies_by_quantiles = np.stack(latencies_by_quantiles).T
 
-    latencies_by_quantiles = np.log(latencies_by_quantiles)
+    # latencies_by_quantiles = np.log(latencies_by_quantiles)
 
     cmap=LinearSegmentedColormap.from_list('rg',["g", "y", "r"], N=len(quantiles))
     for lat, lab, col in zip(latencies_by_quantiles, [f"{i*100}%" for i in quantiles], cmap([i for i in range(len(quantiles))])):
         ax2.plot(seconds, lat, label=lab, color=col)
-    ax2.set_title('Latencies by quantiles (log)')
+    ax2.set_title('Latencies by quantiles')
     ax2.set_xlabel('time')
     ax2.set_ylabel('Latency')
     ax2.legend(loc='upper left')
