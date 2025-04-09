@@ -8,14 +8,14 @@ import simpy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from framework.simple import SimpleSystem, Queue
-from framework.logs import LogInfo, LogProcess
+from framework.simple import System, Queue
+from framework.logs import LogInfo, LogRequest
 
 DIR_NAME = "logs/spherical_logs_"
 
 def run(epoch_count: int, env: simpy.Environment, logger: logging.Logger, req_count_in_sec: int, timeout: float, process_time: float):
     queue = Queue(capacity=-1, resource=simpy.Resource(env))
-    system = SimpleSystem(process_time=process_time, env=env, queue=queue, timeout=timeout, logger=logger)
+    system = System(process_time=process_time, env=env, queue=queue, timeout=timeout, logger=logger)
 
     log = LogInfo(time=env.now, info={'event': 'info', 'epoch_count': epoch_count, 'req_count_in_sec': req_count_in_sec, 'timeout': timeout, 'process_time': process_time})
     logger.info(json.dumps(log.__dict__))
@@ -61,7 +61,7 @@ def make_graph1():
         latencies = []
         num_fails = 0
         for l in logs[1:]:
-            log = LogProcess(**l)
+            log = LogRequest(**l)
             if log.result == 'fail':
                 num_fails += 1
             else:
