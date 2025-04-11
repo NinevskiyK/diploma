@@ -3,6 +3,7 @@ import inspect
 from typing import Callable, List, Literal, Union
 import logging
 import simpy
+import simpy.events
 
 from abc import ABC, abstractmethod
 
@@ -33,6 +34,7 @@ class Request:
     end_time: int = None
     result: Literal['OK', 'KO'] = None
     user: 'User' = None
+    cancelled: simpy.events.Event = None
 
     def log(self):
         self.shared_data.logger.info(logs.LogRequest(start_time=self.start_time, end_time=self.end_time, user=self.user.number, result=self.result, name=self.name))
@@ -51,9 +53,10 @@ class Request:
             return "__global__"
 
     def log_debug(self, message):
-        # return
-        self.shared_data.debug_logger.info(f"on {self.shared_data.env.now} [{self.calling_function()}] [{self.name}_{self.number}]: {message}")
+        return
+        # self.shared_data.debug_logger.info(f"on {self.shared_data.env.now} [{self.calling_function()}] [{self.name}_{self.number}]: {message}")
 
+# TODO: add cancelled logic + enable it
 @dataclass
 class WithKernelQueue(ABC):
     shared_data: SharedData
@@ -98,16 +101,20 @@ class Service(WithKernelQueue):
             yield from self.add_to_kernel_queue(request)
         else:
             with self.queue.resource.request() as req:
-                results = yield req | self.shared_data.env.timeout(self.process_timeout)
+                request.log_debug("started waiting in the queue")
+                results = yield req | self.shared_data.env.timeout(self.process_timeout) | request.cancelled
+                result = None
                 if req in results:
                     request.log_debug("processing request!")
                     yield from self.process_(request)
                     request.log_debug("processed request!")
-                    result = 'OK'
+                elif request.cancelled in results:
+                    request.log_debug("stopping waiting as cancelled")
                 else:
                     request.log_debug("KO as timeout")
                     result = 'KO'
-            yield from request.user.response(request, result)
+            if result is not None:
+                yield from request.user.response(request, result)
             yield from self.on_request_done()
 
 @dataclass
@@ -116,14 +123,21 @@ class System(Service):
 
     core_num: int = 1
 
-    def process_(self, _: Request):
+    def process_(self, request: Request):
+        request.log_debug("process_")
         yield self.shared_data.env.timeout(self.process_time() // self.core_num)
+        request.log_debug("processed")
+        yield from request.user.response(request, 'OK')
+        request.log_debug("sent OK")
 
 # todo: add another per server queue
 @dataclass
 class Balancer(Service):
     timeout: int
     max_conn: int
+    services: List[Service]
+    strategy_type: Literal['Round-Robin'] = 'Round-Robin'
+    conn_num: int = 0
 
     @dataclass
     class RoundRobinStrategy:
@@ -135,11 +149,19 @@ class Balancer(Service):
             self.last_server %= self.servers_count
             return self.last_server
 
-    services: List[Service]
-    strategy_type: Literal['Round-Robin'] = 'Round-Robin'
-
     def __post_init__(self):
         self.strategy = self.RoundRobinStrategy(len(self.services))
+
+    def wait_for_results(self, request: Request, system: Service):
+        request.log_debug(system)
+        request.log_debug("sending request to system")
+        timeout = self.shared_data.env.timeout(self.timeout)
+        req = yield self.shared_data.env.process(system.process_request(request)) | timeout
+        if timeout in req:
+            # TODO: timeout in processing?
+            request.log_debug("KO as timeout on balancer")
+            yield from request.user.response(request, 'KO')
+        self.conn_num -= 1
 
     def process_(self, request: Request):
         request.log_debug("balancer")
@@ -151,11 +173,9 @@ class Balancer(Service):
         self.conn_num += 1
         system_num = self.strategy.get_server()
         system = self.services[system_num]
+        yield self.shared_data.env.timeout(2 + 2) # network + processing
+        self.shared_data.env.process(self.wait_for_results(request, system))
 
-        yield self.shared_data.env.process(system.process_request(request)) | self.shared_data.env.timeout(self.timeout)
-        request.log_debug("KO as timeout on balancer")
-        self.conn_num -= 1
-        yield from request.user.response(request, 'KO')
 
 @dataclass
 class User:
@@ -170,6 +190,7 @@ class User:
 
     def request(self, request: Request):
         self.request_done = self.shared_data.env.event()
+        request.cancelled = self.shared_data.env.event()
         self.last_response_time = self.shared_data.env.now
         self.number = User.number
         User.number += 1
@@ -188,19 +209,27 @@ class User:
             request.log_debug("KO as timeout on client")
             yield from request.user.response(request, 'KO')
 
+    def cancel(self, request: Request):
+        yield self.shared_data.env.timeout(2)
+        request.cancelled.succeed()
+
     def response(self, request: Request, result: Literal['OK', 'KO']):
         request.log_debug(f"got {result} as a result")
         yield self.shared_data.env.timeout(2) # network
 
         if request.end_time is not None:
+            request.log_debug(f"{result} is not first")
             return # duplicate
         
         self.request_done.succeed()
-        request.log_debug(f"{result} if first")
+        request.log_debug(f"{result} is first")
         request.result = result
         request.end_time = self.shared_data.env.now
         request.log()
         self.shared_data.logger.info(logs.LogUser(start_time=self.last_response_time, end_time=self.shared_data.env.now, name=self.name, number=request.number, type='END'))
+
+        if result == 'KO':
+            self.shared_data.env.process(self.cancel(request))
 
     def request_many(self, request: Request):
         while True:
