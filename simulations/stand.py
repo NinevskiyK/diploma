@@ -28,7 +28,7 @@ def create_system(wp_settings: SystemSettings, balancer_settings: BalancerSettin
     return nginx
 
 def create_balancer(balancer_settings: BalancerSettings, services: List[Service], shared_data: SharedData):
-    balancer = Balancer(timeout=balancer_settings.timeout, kernel_queue=KernelQueue(capacity=balancer_settings.kernel_settings.kernel_queue_size), queue=Queue(balancer_settings.queue_size, resource=simpy.Resource(shared_data.env, capacity=balancer_settings.queue_size)), process_timeout=balancer_settings.timeout, services=services, shared_data=shared_data)
+    balancer = Balancer(timeout=balancer_settings.timeout, max_conn=balancer_settings.max_conn, kernel_queue=KernelQueue(capacity=balancer_settings.kernel_settings.kernel_queue_size), queue=Queue(balancer_settings.queue_size, resource=simpy.Resource(shared_data.env, capacity=balancer_settings.queue_size)), process_timeout=balancer_settings.timeout, services=services, shared_data=shared_data)
     return balancer
 
 def create_stand(shared_data: SharedData, stand_settings: StandSettings):

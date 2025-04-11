@@ -166,3 +166,4 @@ cython_debug/
 #.idea/
 
 **logs*/
+simulations/gatling-charts-highcharts-bundle-3.1.2/

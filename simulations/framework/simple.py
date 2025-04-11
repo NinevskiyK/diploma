@@ -51,11 +51,12 @@ class Request:
             return "__global__"
 
     def log_debug(self, message):
-        return
-        # self.shared_data.debug_logger.info(f"on {self.shared_data.env.now} [{self.calling_function()}] [{self.name}_{self.number}]: {message}")
+        # return
+        self.shared_data.debug_logger.info(f"on {self.shared_data.env.now} [{self.calling_function()}] [{self.name}_{self.number}]: {message}")
 
 @dataclass
 class WithKernelQueue(ABC):
+    shared_data: SharedData
     kernel_queue: KernelQueue
 
     def add_to_kernel_queue(self, request: Request):
@@ -67,10 +68,15 @@ class WithKernelQueue(ABC):
             self.kernel_queue.queue.append(request)
 
     def on_request_done(self):
-        if len(self.kernel_queue.queue) > 0:
+        while len(self.kernel_queue.queue) > 0:
             request: Request = self.kernel_queue.queue.pop(0)
-            request.log_debug("poped from kernel queue!")
-            yield from self.process_request(request)
+            request.log_debug("poped from kernel queue")
+            if request.result is None:
+                yield from self.process_request(request)
+                return
+            else:
+                request.log_debug("skipping as connection closed")
+
     
     @abstractmethod
     def process_request(self, request: Request):
@@ -117,6 +123,7 @@ class System(Service):
 @dataclass
 class Balancer(Service):
     timeout: int
+    max_conn: int
 
     @dataclass
     class RoundRobinStrategy:
@@ -136,11 +143,18 @@ class Balancer(Service):
 
     def process_(self, request: Request):
         request.log_debug("balancer")
+        if self.conn_num == self.max_conn:
+            request.log_debug("KO as max_conn exeeded")
+            yield from request.user.response(request, 'KO')
+            return
+
+        self.conn_num += 1
         system_num = self.strategy.get_server()
         system = self.services[system_num]
 
         yield self.shared_data.env.process(system.process_request(request)) | self.shared_data.env.timeout(self.timeout)
         request.log_debug("KO as timeout on balancer")
+        self.conn_num -= 1
         yield from request.user.response(request, 'KO')
 
 @dataclass
