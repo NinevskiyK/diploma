@@ -8,7 +8,7 @@ from settings import *
 import simpy
 import tqdm
 
-from framework.simple import Request, User, System, Queue, Balancer, SharedData, Service, KernelQueue
+from framework.simple import Request, User, System, Queue, Balancer, SharedData, Service
 from process_time_sampler import wp_time, request_time
 from framework.stats import get_stats
 
@@ -22,13 +22,12 @@ def create_shared_data(env: simpy.Environment, logger: logging.Logger, debug_log
     return SharedData(env, logger, debug_logger)
 
 def create_system(wp_settings: SystemSettings, balancer_settings: BalancerSettings, shared_data: SharedData):
-    kernel_queue = KernelQueue(capacity=wp_settings.kernel_settings.kernel_queue_size) # should be shared
-    wp = System(kernel_queue=kernel_queue, queue=Queue(wp_settings.queue_size, resource=simpy.Resource(shared_data.env)), process_timeout=wp_settings.timeout, process_time=lambda: wp_time(wp_settings.process_mean_time), shared_data=shared_data, core_num=wp_settings.core_num)
-    nginx = Balancer(max_conn=balancer_settings.max_conn, shared_data=shared_data, timeout=balancer_settings.timeout, kernel_queue=kernel_queue, queue=Queue(capacity=balancer_settings.queue_size, resource=simpy.Resource(shared_data.env, capacity=balancer_settings.queue_size)), process_timeout=balancer_settings.timeout, services=[wp])
+    wp = System(queue=Queue(wp_settings.queue_size + wp_settings.kernel_settings.kernel_queue_size, resource=simpy.Resource(shared_data.env)), process_timeout=wp_settings.timeout, process_time=lambda: wp_time(wp_settings.process_mean_time), shared_data=shared_data, core_num=wp_settings.core_num)
+    nginx = Balancer(max_conn=balancer_settings.max_conn, shared_data=shared_data, timeout=balancer_settings.timeout, queue=Queue(capacity=balancer_settings.queue_size + balancer_settings.kernel_settings.kernel_queue_size, resource=simpy.Resource(shared_data.env, capacity=balancer_settings.queue_size)), process_timeout=balancer_settings.timeout, services=[wp])
     return nginx
 
 def create_balancer(balancer_settings: BalancerSettings, services: List[Service], shared_data: SharedData):
-    balancer = Balancer(max_conn=balancer_settings.max_conn, timeout=balancer_settings.timeout, kernel_queue=KernelQueue(capacity=balancer_settings.kernel_settings.kernel_queue_size), queue=Queue(balancer_settings.queue_size, resource=simpy.Resource(shared_data.env, capacity=balancer_settings.queue_size)), process_timeout=balancer_settings.timeout, services=services, shared_data=shared_data)
+    balancer = Balancer(max_conn=balancer_settings.max_conn, timeout=balancer_settings.timeout, queue=Queue(balancer_settings.queue_size + balancer_settings.kernel_settings.kernel_queue_size, resource=simpy.Resource(shared_data.env, capacity=balancer_settings.queue_size)), process_timeout=balancer_settings.timeout, services=services, shared_data=shared_data)
     return balancer
 
 def create_stand(shared_data: SharedData, stand_settings: StandSettings):
@@ -80,6 +79,7 @@ def main(stand_settings: StandSettings, request_settings: RequestSettings):
     return get_stats(f'{dir_name}/simulation.log')
 
 if __name__ == "__main__":
+    # todo: random state
     kernel_settings = KernelSettings()
     wp_settings = SystemSettings(kernel_settings=kernel_settings)
     nginx_settings = BalancerSettings(kernel_settings=kernel_settings)

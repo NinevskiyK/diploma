@@ -15,11 +15,6 @@ class Queue:
     resource: simpy.Resource
 
 @dataclass
-class KernelQueue:
-    capacity: int # -1 means unbounded
-    queue: List = field(default_factory= lambda: [])
-
-@dataclass
 class SharedData:
     env: simpy.Environment
     logger: logging.Logger
@@ -53,40 +48,11 @@ class Request:
             return "__global__"
 
     def log_debug(self, message):
-        return
         # self.shared_data.debug_logger.info(f"on {self.shared_data.env.now} [{self.calling_function()}] [{self.name}_{self.number}]: {message}")
-
-# TODO: add cancelled logic + enable it
-@dataclass
-class WithKernelQueue(ABC):
-    shared_data: SharedData
-    kernel_queue: KernelQueue
-
-    def add_to_kernel_queue(self, request: Request):
-        if len(self.kernel_queue.queue) == self.kernel_queue.capacity:
-            request.log_debug("KO as no space in kernel queue") 
-            yield from request.user.response(request, 'KO')
-        else:
-            request.log_debug("append") 
-            self.kernel_queue.queue.append(request)
-
-    def on_request_done(self):
-        while len(self.kernel_queue.queue) > 0:
-            request: Request = self.kernel_queue.queue.pop(0)
-            request.log_debug("poped from kernel queue")
-            if request.result is None:
-                yield from self.process_request(request)
-                return
-            else:
-                request.log_debug("skipping as connection closed")
-
-    
-    @abstractmethod
-    def process_request(self, request: Request):
         pass
 
 @dataclass
-class Service(WithKernelQueue):
+class Service:
     queue: Queue
     process_timeout: int
     shared_data: SharedData
@@ -98,7 +64,8 @@ class Service(WithKernelQueue):
     def process_request(self, request: Request):
         request.log_debug("Got request to process!")
         if self.queue.resource.count == self.queue.capacity:
-            yield from self.add_to_kernel_queue(request)
+            request.log_debug("KO as no space in queue")
+            yield from request.user.response(request, 'KO')
         else:
             with self.queue.resource.request() as req:
                 request.log_debug("started waiting in the queue")
@@ -115,7 +82,6 @@ class Service(WithKernelQueue):
                     result = 'KO'
             if result is not None:
                 yield from request.user.response(request, result)
-            yield from self.on_request_done()
 
 @dataclass
 class System(Service):
@@ -124,11 +90,11 @@ class System(Service):
     core_num: int = 1
 
     def process_(self, request: Request):
-        request.log_debug("process_")
+        request.log_debug("started processing")
         yield self.shared_data.env.timeout(self.process_time() // self.core_num)
         request.log_debug("processed")
         yield from request.user.response(request, 'OK')
-        request.log_debug("sent OK")
+        request.log_debug("OK as processed")
 
 # todo: add another per server queue
 @dataclass
@@ -153,7 +119,6 @@ class Balancer(Service):
         self.strategy = self.RoundRobinStrategy(len(self.services))
 
     def wait_for_results(self, request: Request, system: Service):
-        request.log_debug(system)
         request.log_debug("sending request to system")
         timeout = self.shared_data.env.timeout(self.timeout)
         req = yield self.shared_data.env.process(system.process_request(request)) | timeout
@@ -165,6 +130,7 @@ class Balancer(Service):
 
     def process_(self, request: Request):
         request.log_debug("balancer")
+        # TODO: перенести в service
         if self.conn_num == self.max_conn:
             request.log_debug("KO as max_conn exeeded")
             yield from request.user.response(request, 'KO')
@@ -184,26 +150,25 @@ class User:
     name: str
     request_time: Callable
     timeout: int
-    last_response_time: int = 0
 
     number = 1
 
     def request(self, request: Request):
         self.request_done = self.shared_data.env.event()
         request.cancelled = self.shared_data.env.event()
-        self.last_response_time = self.shared_data.env.now
+
         self.number = User.number
         User.number += 1
         request.number = self.number
-
-        self.shared_data.logger.info(logs.LogUser(start_time=self.last_response_time, end_time=self.last_response_time, name=self.name, number=self.number, type='START'))
-        yield self.shared_data.env.timeout(2) # network
-
         request.user = self
         request.start_time = self.shared_data.env.now
 
+        self.shared_data.logger.info(logs.LogUser(start_time=request.start_time, end_time=request.start_time, name=self.name, number=self.number, type='START'))
+        yield self.shared_data.env.timeout(2) # network
+
         request.log_debug("sending to processing with timeout " + str(self.timeout))
         self.shared_data.env.process(self.service.process_request(request))
+
         res = yield self.shared_data.env.timeout(self.timeout) | self.request_done
         if self.request_done not in res:
             request.log_debug("KO as timeout on client")
@@ -226,7 +191,7 @@ class User:
         request.result = result
         request.end_time = self.shared_data.env.now
         request.log()
-        self.shared_data.logger.info(logs.LogUser(start_time=self.last_response_time, end_time=self.shared_data.env.now, name=self.name, number=request.number, type='END'))
+        self.shared_data.logger.info(logs.LogUser(start_time=request.start_time, end_time=self.shared_data.env.now, name=self.name, number=request.number, type='END'))
 
         if result == 'KO':
             self.shared_data.env.process(self.cancel(request))
@@ -235,4 +200,8 @@ class User:
         while True:
             request_ = Request(request.name, request.shared_data)
             yield from self.request(request_)
-            yield self.shared_data.env.timeout(self.request_time())
+            wait_time = self.request_time()
+            wait_time -= request_.end_time - request_.start_time
+            wait_time = max(0, wait_time)
+            request_.log_debug(f"User is waiting {wait_time} before sending another request")
+            yield self.shared_data.env.timeout(wait_time)
