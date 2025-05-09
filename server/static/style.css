@@ -1,0 +1,53 @@
+#grid-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10rem;
+    max-width: 80rem; /* Увеличено для учета gap */
+    margin: 0 auto;
+    position: relative;
+    align-items: start; /* Выравнивание по верхнему краю */
+    justify-content: center; /* Центрирует колонки по горизонтали */
+}
+
+#user-container {
+    grid-column: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+}
+
+#haproxy-container {
+    grid-column: 2;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+}
+
+#nginx-wp-container {
+    grid-column: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+}
+
+#arrows-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+.card.kernel-settings {
+    margin-top: 1rem;
+}
+
+.card .card-body {
+    padding: 1rem;
+}

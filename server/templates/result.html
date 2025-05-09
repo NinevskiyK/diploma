@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container my-4" data-dir-name="{{ dir_name | safe }}">
+        <h1 class="mb-4">Simulation Running</h1>
+        {% if stand_settings and request_settings and dir_name %}
+            <p>Optimization in progress... Please wait.</p>
+            <div id="grid-container">
+                <svg id="arrows-svg"></svg>
+                <!-- User Block -->
+                <div id="user-container">
+                    <div class="card block" id="user-block" style="width: 18rem;">
+                        <div class="card-body">
+                            <h5 class="card-title">Users</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Max Users</label>
+                                <input type="number" class="form-control" value="{{ (request_settings['new_users_per_step'] | length) if request_settings else 0 }}" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Timeout (ms)</label>
+                                <input type="number" class="form-control" value="{{ request_settings['timeout'] if request_settings else 0 }}" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Step Time (ms)</label>
+                                <input type="number" class="form-control" value="{{ request_settings['step_time'] if request_settings else 0 }}" disabled>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- HAProxy Block -->
+                <div id="haproxy-container">
+                    <div class="card block" id="haproxy-block" style="width: 18rem;">
+                        <div class="card-body">
+                            <h5 class="card-title">HAProxy</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Queue Size</label>
+                                <input type="number" class="form-control" value="{{ stand_settings['haproxy_setting']['queue_size'] if stand_settings else 0 }}" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Max Connections</label>
+                                <input type="number" class="form-control" value="{{ stand_settings['haproxy_setting']['max_conn'] if stand_settings else 0 }}" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Timeout (ms)</label>
+                                <input type="number" class="form-control" value="{{ stand_settings['haproxy_setting']['timeout'] if stand_settings else 0 }}" disabled>
+                            </div>
+                            <div class="card kernel-settings">
+                                <div class="card-body">
+                                    <h6>Kernel Settings</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Queue Size</label>
+                                        <input type="number" class="form-control" value="{{ stand_settings['haproxy_setting']['kernel_settings']['kernel_queue_size'] if stand_settings else 0 }}" disabled>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Nginx+WP Blocks -->
+                <div id="nginx-wp-container">
+                    {% for i in range((stand_settings['wp_settings'] | length) if stand_settings else 0) %}
+                    <div class="card block nginx-wp-block" id="nginx-wp-{{ i + 1 }}" style="width: 38rem;">
+                        <div class="card-body">
+                            <h5 class="card-title">Nginx + WP #{{ i + 1 }}</h5>
+                            <div class="row">
+                                <!-- Nginx Settings -->
+                                <div class="col-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6>Nginx Settings</h6>
+                                            <div class="mb-3">
+                                                <label class="form-label">Queue Size</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['nginx_settings'][i]['queue_size'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Max Connections</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['nginx_settings'][i]['max_conn'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Timeout (ms)</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['nginx_settings'][i]['timeout'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="card kernel-settings">
+                                                <div class="card-body">
+                                                    <h6>Nginx Kernel Settings</h6>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Queue Size</label>
+                                                        <input type="number" class="form-control" value="{{ stand_settings['nginx_settings'][i]['kernel_settings']['kernel_queue_size'] if stand_settings else 0 }}" disabled>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- WP Settings -->
+                                <div class="col-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6>WP Settings</h6>
+                                            <div class="mb-3">
+                                                <label class="form-label">Core Num</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['core_num'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Queue Size</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['queue_size'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Max Connections</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['max_conn'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Timeout (ms)</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['timeout'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Process Mean Time (ms)</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['process_mean_time'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="card kernel-settings">
+                                                <div class="card-body">
+                                                    <h6>WP Kernel Settings</h6>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Queue Size</label>
+                                                        <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['kernel_settings']['kernel_queue_size'] if stand_settings else 0 }}" disabled>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="mt-4">
+                <h3>Simulation Logs</h3>
+                <pre id="simulation-logs" style="max-height: 300px; overflow-y: auto; background-color: #f8f9fa; padding: 1rem;">Simulation running...</pre>
+            </div>
+        {% else %}
+            <p>No simulation data available. Please start a new simulation.</p>
+        {% endif %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/script_result.js"></script>
+</body>
+</html>

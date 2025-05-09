@@ -1,22 +1,19 @@
 import logging
 import os
-import time
 from typing import List, Union
-import random
-from settings import *
+from .settings import *
 
 import simpy
 import tqdm
 
-from framework.simple import Request, User, System, Queue, Balancer, SharedData, Service
-from process_time_sampler import wp_time, request_time
-from framework.stats import get_stats
+from .framework.simple import Request, User, System, Queue, Balancer, SharedData, Service
+from .process_time_sampler import wp_time, request_time
+from .framework.stats import get_stats
 
 import resource, sys
 resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 sys.setrecursionlimit(10**6)
 
-DIR_NAME = "logs/logs_"
 
 def create_shared_data(env: simpy.Environment, logger: logging.Logger, debug_logger: logging.Logger):
     return SharedData(env, logger, debug_logger)
@@ -31,7 +28,7 @@ def create_balancer(balancer_settings: BalancerSettings, services: List[Service]
     return balancer
 
 def create_stand(shared_data: SharedData, stand_settings: StandSettings):
-    systems = [create_system(stand_settings.wp_settings, stand_settings.nginx_settings, shared_data) for _ in range(stand_settings.server_num)]
+    systems = [create_system(wp_setting, nginx_settings, shared_data) for wp_setting, nginx_settings in zip(stand_settings.wp_settings, stand_settings.nginx_settings)]
     haproxy = create_balancer(stand_settings.haproxy_setting, systems, shared_data)
     return haproxy
 
@@ -69,21 +66,7 @@ def run_simulation(dir_name, stand_settings: StandSettings, request_settings: Re
     env.run(until=request_settings.step_time * len(request_settings.new_users_per_step))
 
 
-def main(stand_settings: StandSettings, request_settings: RequestSettings):
-    global DIR_NAME
-    dir_name = DIR_NAME
-
-    dir_name += time.strftime('%Y-%m-%d_%H:%M:%S') + "_" + str(random.randint(0, 100))
+def main(stand_settings: StandSettings, request_settings: RequestSettings, dir_name):
     os.makedirs(dir_name, exist_ok=True)
     run_simulation(dir_name, stand_settings, request_settings)
     return get_stats(f'{dir_name}/simulation.log')
-
-if __name__ == "__main__":
-    # todo: random state
-    kernel_settings = KernelSettings()
-    wp_settings = SystemSettings(kernel_settings=kernel_settings)
-    nginx_settings = BalancerSettings(kernel_settings=kernel_settings)
-    haproxy_settings = BalancerSettings(kernel_settings=kernel_settings)
-    stand_settings = StandSettings(wp_settings, nginx_settings, haproxy_settings)
-    stats = main(stand_settings, RequestSettings())
-    print(stats)

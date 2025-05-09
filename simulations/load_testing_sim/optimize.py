@@ -1,6 +1,6 @@
 import optuna
-from settings import SystemSettings, RequestSettings
-from stand import main
+from simulations.load_testing_sim.settings import SystemSettings, RequestSettings
+from simulations.load_testing_sim.stand import main
 
 def objective(trial: optuna.Trial):
     server_num=trial.suggest_int("server_num", 1, 2)
