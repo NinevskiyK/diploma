@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/static/common.js"></script>
+    <script src="/static/script_simulation.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container my-4">
+        <h1 class="mb-4">Simulation</h1>
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="/simulation">Simulation</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/params-optimization">Params Optimization</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/request-time-optimization">Request Time Optimization</a>
+            </li>
+        </ul>
+        <div class="mb-4">
+            <label for="server-num" class="form-label">Number of Nginx+WP Servers: <span id="server-num-value">1</span></label>
+            <input type="range" class="form-range" id="server-num" min="1" max="9" value="1">
+        </div>
+        <div id="grid-container">
+            <svg id="arrows-svg"></svg>
+            <!-- User Block -->
+            <div id="user-container">
+                <div class="card block" id="user-block" style="width: 18rem;">
+                    <div class="card-body">
+                        <h5 class="card-title">Users</h5>
+                        <div class="mb-3">
+                            <label for="user-max-users" class="form-label">Max Users</label>
+                            <input type="number" class="form-control" id="user-max-users" value="200" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-timeout" class="form-label">Timeout (ms)</label>
+                            <input type="number" class="form-control" id="user-timeout" value="10000" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-step-time" class="form-label">Step Time (ms)</label>
+                            <input type="number" class="form-control" id="user-step-time" value="3000" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-type" class="form-label">Request Type</label>
+                            <select class="form-select" id="user-type">
+                                <option value="opened" selected>Opened</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="user-enable-tracing" checked>
+                            <label for="user-enable-tracing" class="form-check-label">Enable Tracing</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- HAProxy Block -->
+            <div id="haproxy-container">
+                <div class="card block" id="haproxy-block" style="width: 18rem;">
+                    <div class="card-body">
+                        <h5 class="card-title">HAProxy</h5>
+                        <div class="mb-3">
+                            <label for="haproxy-queue-size" class="form-label">Queue Size</label>
+                            <input type="number" class="form-control" id="haproxy-queue-size" value="20" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="haproxy-max-conn" class="form-label">Max Connections</label>
+                            <input type="number" class="form-control" id="haproxy-max-conn" value="1024" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="haproxy-timeout" class="form-label">Timeout (ms)</label>
+                            <input type="number" class="form-control" id="haproxy-timeout" value="30000" min="1">
+                        </div>
+                        <div class="card kernel-settings">
+                            <div class="card-body">
+                                <h6>Kernel Settings</h6>
+                                <div class="mb-3">
+                                    <label for="haproxy-kernel-queue-size" class="form-label">Queue Size</label>
+                                    <input type="number" class="form-control" id="haproxy-kernel-queue-size" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Nginx+WP Blocks -->
+            <div id="nginx-wp-container">
+                <div class="card block nginx-wp-block" id="nginx-wp-1" style="width: 38rem;">
+                    <div class="card-body">
+                        <h5 class="card-title">Nginx + WP #1</h5>
+                        <div class="row">
+                            <!-- Nginx Settings -->
+                            <div class="col-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6>Nginx Settings</h6>
+                                        <div class="mb-3">
+                                            <label for="nginx-queue-size-1" class="form-label">Queue Size</label>
+                                            <input type="number" class="form-control" id="nginx-queue-size-1" value="20" min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="nginx-max-conn-1" class="form-label">Max Connections</label>
+                                            <input type="number" class="form-control" id="nginx-max-conn-1" value="1024" min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="nginx-timeout-1" class="form-label">Timeout (ms)</label>
+                                            <input type="number" class="form-control" id="nginx-timeout-1" value="30000" min="1">
+                                        </div>
+                                        <div class="card kernel-settings">
+                                            <div class="card-body">
+                                                <h6>Nginx Kernel Settings</h6>
+                                                <div class="mb-3">
+                                                    <label for="nginx-kernel-queue-size-1" class="form-label">Queue Size</label>
+                                                    <input type="number" class="form-control" id="nginx-kernel-queue-size-1" value="0" min="0">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- WP Settings -->
+                            <div class="col-6">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6>WP Settings</h6>
+                                        <div class="mb-3">
+                                            <label for="wp-core-num-1" class="form-label">Core Num</label>
+                                            <input type="number" class="form-control" id="wp-core-num-1" value="1" min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-queue-size-1" class="form-label">Queue Size</label>
+                                            <input type="number" class="form-control" id="wp-queue-size-1" value="1024" min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-max-conn-1" class="form-label">Max Connections</label>
+                                            <input type="number" class="form-control" id="wp-max-conn-1" value="1024" min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-timeout-1" class="form-label">Timeout (ms)</label>
+                                            <input type="number" class="form-control" id="wp-timeout-1" value="20000" min="1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-process-mean-time-1" class="form-label">Process Mean Time (ms)</label>
+                                            <input type="number" class="form-control" id="wp-process-mean-time-1" value="10" min="0" step="0.1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-process-std-dev-1" class="form-label">Process Std Dev (ms)</label>
+                                            <input type="number" class="form-control" id="wp-process-std-dev-1" value="2" min="0" step="0.1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-process-dist-type-1" class="form-label">Process Distribution Type</label>
+                                            <select class="form-select" id="wp-process-dist-type-1">
+                                                <option value="gamma" selected>Gamma</option>
+                                                <option value="lognorm">Lognorm</option>
+                                                <option value="weibull">Weibull</option>
+                                            </select>
+                                        </div>
+                                        <div class="card kernel-settings">
+                                            <div class="card-body">
+                                                <h6>WP Kernel Settings</h6>
+                                                <div class="mb-3">
+                                                    <label for="wp-kernel-queue-size-1" class="form-label">Queue Size</label>
+                                                    <input type="number" class="form-control" id="wp-kernel-queue-size-1" value="0" min="0">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-primary mt-4" id="submit-btn">Submit Settings</button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>

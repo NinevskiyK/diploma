@@ -1,130 +1,74 @@
+console.log('script_result.js loaded');
+
 document.addEventListener('DOMContentLoaded', () => {
-    const svgContainer = document.getElementById('arrows-svg');
-    const container = document.querySelector('.container');
-    const dirName = container ? container.dataset.dirName : null;
-    const logsContainer = document.getElementById('simulation-logs');
-    let statusInterval = null;
-    let timeoutId = null;
+    console.log('DOMContentLoaded fired');
+    
+    const dirNameElement = document.getElementById('dir-name');
+    const statusElement = document.getElementById('status');
+    const logsElement = document.getElementById('logs');
 
-    console.log('dirName:', dirName); // Отладка
-
-    // Draw arrows
-    function drawArrows() {
-        svgContainer.innerHTML = `
-            <defs>
-                <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="#005066" />
-                </marker>
-            </defs>
-        `;
-
-        const gridContainer = document.getElementById('grid-container');
-        const userBlock = document.getElementById('user-block');
-        const haproxyBlock = document.getElementById('haproxy-block');
-        const nginxWpBlocks = document.querySelectorAll('.nginx-wp-block');
-
-        function drawArrow(startBlock, endBlock, arrowId) {
-            const startRect = startBlock.getBoundingClientRect();
-            const endRect = endBlock.getBoundingClientRect();
-            const gridRect = gridContainer.getBoundingClientRect();
-
-            const startX = startRect.right - gridRect.left + window.scrollX;
-            const startY = startRect.top + startRect.height / 2 - gridRect.top + window.scrollY;
-            const endX = endRect.left - gridRect.left + window.scrollX;
-            const endY = endRect.top + endRect.height / 2 - gridRect.top + window.scrollY;
-
-            const cornerX = startX + (endX - startX) / 2;
-            const cornerY = startY;
-
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const d = `
-                M ${startX},${startY}
-                H ${cornerX}
-                V ${endY}
-                H ${endX}
-            `;
-            path.setAttribute('d', d);
-            path.setAttribute('stroke', '#005066');
-            path.setAttribute('stroke-width', '4');
-            path.setAttribute('fill', 'none');
-            path.setAttribute('marker-end', 'url(#arrowhead)');
-            path.setAttribute('id', arrowId);
-            svgContainer.appendChild(path);
-        }
-
-        if (userBlock && haproxyBlock) {
-            drawArrow(userBlock, haproxyBlock, 'arrow-user-haproxy');
-        }
-
-        nginxWpBlocks.forEach((block, index) => {
-            if (haproxyBlock) {
-                drawArrow(haproxyBlock, block, `arrow-haproxy-nginx-${index + 1}`);
-            }
-        });
+    if (!dirNameElement) {
+        console.error('Error: dir-name element not found');
+        if (statusElement) statusElement.textContent = 'Error';
+        if (logsElement) logsElement.textContent = 'Error: dir-name element not found';
+        return;
     }
 
-    // Check simulation status
-    function checkSimulationStatus() {
-        if (!dirName) {
-            logsContainer.textContent = 'No simulation directory specified.';
-            if (statusInterval) clearInterval(statusInterval);
-            if (timeoutId) clearTimeout(timeoutId);
-            return;
-        }
+    const dirName = dirNameElement.value;
+    console.log('dirName:', dirName);
 
+    if (!dirName || dirName === 'None') {
+        console.error('Error: dirName is empty or None');
+        if (statusElement) statusElement.textContent = 'Error';
+        if (logsElement) logsElement.textContent = 'Error: dirName is empty or None';
+        return;
+    }
+
+    if (!statusElement || !logsElement) {
+        console.error('Error: status or logs element not found');
+        return;
+    }
+
+    function updateStatus() {
+        console.log(`Fetching status for ${dirName}`);
         fetch(`/status/${dirName}`)
             .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
+                console.log('Status response status:', response.status);
                 return response.json();
             })
             .then(data => {
-                console.log('Status response:', data); // Отладка
+                console.log('Status response data:', data);
                 if (data.status === 'running') {
-                    logsContainer.textContent = data.logs || 'Simulation running...';
-                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                    statusElement.textContent = 'Simulation Running';
+                    logsElement.textContent = data.logs || 'Simulation running, no logs yet...';
                 } else if (data.status === 'completed') {
-                    logsContainer.textContent += 'Simulation completed! Opening results...';
-                    console.log('Attempting to open:', data.result_url); // Отладка
-                    const newWindow = window.open(data.result_url, '_blank');
-                    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-                        console.warn('window.open failed, redirecting to:', data.result_url);
-                        logsContainer.textContent += '\nPopup blocked. Redirecting to results...';
-                        setTimeout(() => {
-                            window.location.href = data.result_url;
-                        }, 1000);
+                    statusElement.textContent = 'Simulation Completed';
+                    logsElement.textContent = data.logs || 'No logs available.';
+                    if (data.result_url) {
+                        console.log('Redirecting to result_url:', data.result_url);
+                        window.location.href = data.result_url;
                     }
-                    if (statusInterval) clearInterval(statusInterval);
-                    if (timeoutId) clearTimeout(timeoutId);
-                } else if (data.status === 'not_found') {
-                    logsContainer.textContent = 'Simulation not found.';
-                    if (statusInterval) clearInterval(statusInterval);
-                    if (timeoutId) clearTimeout(timeoutId);
+                    clearInterval(interval);
                 } else if (data.status === 'error') {
-                    logsContainer.textContent = `Error: ${data.message}`;
-                    if (statusInterval) clearInterval(statusInterval);
-                    if (timeoutId) clearTimeout(timeoutId);
+                    statusElement.textContent = 'Simulation Failed';
+                    logsElement.textContent = data.message || 'Unknown error occurred.';
+                    clearInterval(interval);
+                } else {
+                    statusElement.textContent = 'Simulation Not Found';
+                    logsElement.textContent = 'No simulation data available.';
+                    clearInterval(interval);
                 }
             })
             .catch(error => {
-                console.error('Error checking status:', error);
-                logsContainer.textContent = `Error checking simulation status: ${error.message}`;
-                if (statusInterval) clearInterval(statusInterval);
-                if (timeoutId) clearTimeout(timeoutId);
+                console.error('Status fetch error:', error);
+                statusElement.textContent = 'Error Checking Status';
+                logsElement.textContent = `Error: ${error.message}`;
+                clearInterval(interval);
             });
     }
 
-    // Initial draw and status check
-    drawArrows();
-    if (dirName) {
-        statusInterval = setInterval(checkSimulationStatus, 5000);
-        checkSimulationStatus();
-        timeoutId = setTimeout(() => {
-            if (statusInterval) clearInterval(statusInterval);
-            logsContainer.textContent = 'Simulation timed out. Please check server logs.';
-        }, 30 * 60 * 1000);
-    } else {
-        logsContainer.textContent = 'No simulation directory specified.';
-    }
+    // Начальный запрос статуса
+    updateStatus();
+    // Обновление каждые 2 секунды
+    const interval = setInterval(updateStatus, 2000);
 });

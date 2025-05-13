@@ -12,70 +12,43 @@ app = Flask(__name__)
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG)
 
-# Путь для хранения состояния симуляций
-SIMULATIONS_FILE = 'simulations.json'
-
-# Загрузка или инициализация симуляций
-def load_simulations():
-    try:
-        if os.path.exists(SIMULATIONS_FILE):
-            with open(SIMULATIONS_FILE, 'r') as f:
-                data = json.load(f)
-                app.logger.debug(f"Loaded simulations: {data}")
-                return data
-        app.logger.debug("No simulations file found, initializing empty")
-        return {}
-    except Exception as e:
-        app.logger.error(f"Error loading simulations: {str(e)}")
-        return {}
-
-# Сохранение симуляций
-def save_simulations(simulations):
-    try:
-        with open(SIMULATIONS_FILE, 'w') as f:
-            json.dump(simulations, f)
-        app.logger.debug(f"Saved simulations: {simulations}")
-    except Exception as e:
-        app.logger.error(f"Error saving simulations: {str(e)}")
-
-simulations = load_simulations()
+# Хранилище для запущенных процессов
+processes = {}
 
 @app.route('/', methods=['GET'])
 def index():
     app.logger.debug("Rendering index.html")
     return render_template('index.html')
 
-@app.route('/result', methods=['GET'])
-def result():
-    stand_settings = request.args.get('stand_settings')
-    request_settings = request.args.get('request_settings')
-    dir_name = request.args.get('dir_name')
-    
-    app.logger.debug(f"Rendering result.html with stand_settings: {stand_settings}, "
-                    f"request_settings: {request_settings}, dir_name: {dir_name}")
-    
-    return render_template('result.html',
-                         stand_settings=json.loads(stand_settings) if stand_settings else None,
-                         request_settings=json.loads(request_settings) if request_settings else None,
-                         dir_name=dir_name)
+@app.route('/simulation', methods=['GET', 'POST'])
+def simulation():
+    if request.method == 'GET':
+        app.logger.debug("Rendering simulation.html")
+        return render_template('simulation.html')
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            if not data:
+                app.logger.error("No settings provided")
+                return jsonify({"status": "error", "message": "No settings provided"}), 400
+            app.logger.debug(f"Received simulation settings: {json.dumps(data, indent=2)}")
 
-@app.route('/', methods=['POST'])
-def settings():
-    data = request.get_json()
-    app.logger.debug(f"Received settings: {data}")
-    try:
-        stand_settings = StandSettings.from_dict(data['stand_settings'])
-        request_settings = RequestSettings.from_dict(data['request_settings'])
-        dir_name = f'simulations/{datetime.now().strftime('%H:%M:%S_%Y-%m-%d')}_{uuid4()}'
-        os.makedirs(dir_name, exist_ok=True)
-        
-        # Сохраняем настройки в файл
-        settings_file = f"{dir_name}/settings.json"
-        with open(settings_file, 'w') as f:
-            json.dump(data, f)
-        
-        # Создаем временный скрипт для симуляции
-        run_script = """
+            # Валидация настроек
+            stand_settings = StandSettings.from_dict(data['stand_settings'])
+            request_settings = RequestSettings.from_dict(data['request_settings'])
+
+            # Создание уникальной директории
+            unique_id = f"{datetime.now().strftime('%H:%M:%S_%Y-%m-%d')}_{uuid4()}"
+            dir_name = f"simulations/{unique_id}"
+            os.makedirs(dir_name, exist_ok=True)
+
+            # Сохранение настроек
+            settings_file = f"{dir_name}/settings.json"
+            with open(settings_file, 'w') as f:
+                json.dump(data, f, indent=2)
+
+            # Создание скрипта симуляции
+            run_script = """
 from load_testing_sim.stand import main
 from load_testing_sim.settings import StandSettings, RequestSettings
 import json
@@ -90,57 +63,123 @@ if __name__ == '__main__':
          RequestSettings.from_dict(data['request_settings']),
          dir_name)
 """
-        with open(f"{dir_name}/run_sim.py", 'w') as f:
-            f.write(run_script)
-        
-        # Запускаем симуляцию в отдельном процессе
-        log_file = f"{dir_name}/run.log"
-        process = subprocess.Popen(
-            ['python3', f"{dir_name}/run_sim.py", settings_file, dir_name],
-            stdout=open(log_file, 'w'),
-            stderr=subprocess.STDOUT,
-            text=True
-        )
-        
-        simulations[dir_name] = {'pid': process.pid, 'process': process, 'status': 'running'}
-        save_simulations(simulations)
-        app.logger.debug(f"Started simulation in {dir_name} with PID {process.pid}, logging to {log_file}")
-        
-        return redirect(url_for('result',
-                              stand_settings=json.dumps(stand_settings.to_dict()),
-                              request_settings=json.dumps(request_settings.to_dict()),
-                              dir_name=dir_name))
+            with open(f"{dir_name}/run_sim.py", 'w') as f:
+                f.write(run_script)
+
+            # Запуск симуляции
+            log_file = f"{dir_name}/run.log"
+            process = subprocess.Popen(
+                ['python3', f"{dir_name}/run_sim.py", settings_file, dir_name],
+                stdout=open(log_file, 'w'),
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+
+            # Сохранение информации о процессе
+            processes[unique_id] = {
+                'pid': process.pid,
+                'process': process,
+                'status': 'running',
+                'result_url': f"/simulations/{unique_id}/index.html"
+            }
+            app.logger.debug(f"Started simulation in {dir_name} with PID {process.pid}, logging to {log_file}")
+
+            # Редирект на results с clean_dir_name
+            return jsonify({'dir_name': unique_id})
+        except Exception as e:
+            app.logger.error(f"Error processing simulation settings: {str(e)}")
+            return jsonify({"status": "error", "message": f"Invalid settings: {str(e)}"}), 400
+
+@app.route('/params-optimization', methods=['GET', 'POST'])
+def params_optimization():
+    if request.method == 'GET':
+        app.logger.debug("Rendering params-optimization.html")
+        return render_template('params-optimization.html')
+    elif request.method == 'POST':
+        settings = request.get_json()
+        if not settings:
+            app.logger.error("No settings provided for params-optimization")
+            return jsonify({'error': 'No settings provided'}), 400
+        app.logger.debug(f"Params Optimization settings: {json.dumps(settings, indent=2)}")
+        return jsonify({'message': 'Optimization parameters received'})
+
+@app.route('/request-time-optimization', methods=['GET', 'POST'])
+def request_time_optimization():
+    if request.method == 'GET':
+        app.logger.debug("Rendering request-time-optimization.html")
+        return render_template('request-time-optimization.html')
+    elif request.method == 'POST':
+        settings = request.get_json()
+        if not settings:
+            app.logger.error("No settings provided for request-time-optimization")
+            return jsonify({'error': 'No settings provided'}), 400
+        app.logger.debug(f"Request Time Optimization settings: {json.dumps(settings, indent=2)}")
+        return jsonify({'message': 'Optimization parameters received'})
+
+@app.route('/results/<path:dir_name>', methods=['GET'])
+def results(dir_name):
+    clean_dir_name = dir_name.replace('simulations/', '') if dir_name.startswith('simulations/') else dir_name
+    settings_path = f"simulations/{clean_dir_name}/settings.json"
+    results_path = f"simulations/{clean_dir_name}/results.json"
+    index_path = f"simulations/{clean_dir_name}/index.html"
+
+    app.logger.debug(f"Processing results for dir_name: {clean_dir_name}")
+
+    try:
+        settings = {}
+        if os.path.exists(settings_path):
+            with open(settings_path) as f:
+                settings = json.load(f)
+        else:
+            app.logger.warning(f"Settings file not found: {settings_path}")
+
+        results = {}
+        if os.path.exists(results_path):
+            with open(results_path) as f:
+                results = json.load(f)
+
+        # Проверяем, существует ли index.html
+        result_url = f"/simulations/{clean_dir_name}/index.html" if os.path.exists(index_path) else ''
+        app.logger.debug(f"Rendering results.html for {clean_dir_name}, result_url: {result_url}")
+
+        return render_template('results.html', dir_name=clean_dir_name, settings=settings, results=results, result_url=result_url)
     except Exception as e:
-        app.logger.error(f"Error processing settings: {str(e)}")
-        return jsonify({"status": "error", "message": f"Invalid settings: {str(e)}"}), 400
+        app.logger.error(f"Error rendering results for {clean_dir_name}: {str(e)}")
+        return render_template('results.html', dir_name=clean_dir_name, error=str(e))
 
 @app.route('/status/<path:dir_name>', methods=['GET'])
 def check_status(dir_name):
-    app.logger.debug(f"Checking status for {dir_name}")
-    if dir_name not in simulations:
-        app.logger.warning(f"Simulation {dir_name} not found in {simulations}")
-        return jsonify({"status": "not_found"})
-    
-    sim = simulations[dir_name]
+    clean_dir_name = dir_name.replace('simulations/', '') if dir_name.startswith('simulations/') else dir_name
+    app.logger.debug(f"Received status request for {clean_dir_name}")
+
+    if clean_dir_name not in processes:
+        app.logger.warning(f"Simulation {clean_dir_name} not found in processes: {list(processes.keys())}")
+        index_path = f"simulations/{clean_dir_name}/index.html"
+        if os.path.exists(index_path):
+            app.logger.debug(f"Found index.html for {clean_dir_name}, assuming completed")
+            return jsonify({"status": "completed", "result_url": f"/simulations/{clean_dir_name}/index.html"})
+        return jsonify({"status": "not_found"}), 404
+
+    sim = processes[clean_dir_name]
     process = sim['process']
     return_code = process.poll()
-    
-    app.logger.debug(f"Process status for {dir_name}, PID {sim['pid']}, return_code: {return_code}")
-    
+
+    app.logger.debug(f"Process status for {clean_dir_name}, PID {sim['pid']}, return_code: {return_code}")
+
     if return_code is None:
-        log_file = f"{dir_name}/run.log"
+        log_file = f"simulations/{clean_dir_name}/run.log"
         logs = "Simulation running..."
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 logs = f.read()
-        app.logger.debug(f"Simulation {dir_name} running, logs: {logs[:100]}...")
+        app.logger.debug(f"Simulation {clean_dir_name} running, logs: {logs[:100]}...")
         return jsonify({"status": "running", "logs": logs})
     else:
-        app.logger.debug(f"Simulation {dir_name} process completed with return_code {return_code}, attempting to run Gatling")
+        app.logger.debug(f"Simulation {clean_dir_name} process completed with return_code {return_code}, attempting to run Gatling")
         gatling_path = os.path.abspath("../simulations/gatling-charts-highcharts-bundle-3.1.2/bin/gatling.sh")
-        simulation_dir = os.path.abspath(dir_name)
+        simulation_dir = os.path.abspath(f"simulations/{clean_dir_name}")
         app.logger.debug(f"Using Gatling path: {gatling_path}, simulation directory: {simulation_dir}")
-        
+
         if not os.path.exists(simulation_dir):
             app.logger.error(f"Simulation directory {simulation_dir} does not exist")
             return jsonify({"status": "error", "message": f"Simulation directory {simulation_dir} does not exist"})
@@ -150,22 +189,20 @@ def check_status(dir_name):
         if not os.access(gatling_path, os.X_OK):
             app.logger.error(f"Gatling script at {gatling_path} is not executable")
             return jsonify({"status": "error", "message": f"Gatling script at {gatling_path} is not executable"})
-        
+
         try:
             result = subprocess.run([gatling_path, "-ro", simulation_dir], capture_output=True, text=True, check=True)
-            app.logger.debug(f"Gatling executed for {dir_name}, stdout: {result.stdout}, stderr: {result.stderr}")
-            result_url = f"{dir_name}/index.html"
-            result_path = os.path.abspath(result_url)
+            app.logger.debug(f"Gatling executed for {clean_dir_name}, stdout: {result.stdout}, stderr: {result.stderr}")
+            result_url = f"/simulations/{clean_dir_name}/index.html"
+            result_path = os.path.abspath(result_url.lstrip('/'))
             if not os.path.exists(result_path):
                 app.logger.error(f"Result file {result_path} not found after Gatling execution")
                 return jsonify({"status": "error", "message": f"Result file {result_path} not found"})
             app.logger.debug(f"Returning result_url: {result_url}")
             sim['status'] = 'completed'
-            save_simulations(simulations)
-            app.logger.debug(f"Simulation {dir_name} completed, Gatling executed")
             return jsonify({"status": "completed", "result_url": result_url})
         except subprocess.CalledProcessError as e:
-            app.logger.error(f"Error running Gatling for {dir_name}: {str(e)}, stdout: {e.stdout}, stderr: {e.stderr}")
+            app.logger.error(f"Error running Gatling for {clean_dir_name}: {str(e)}, stdout: {e.stdout}, stderr: {e.stderr}")
             return jsonify({"status": "error", "message": f"Error running Gatling: {str(e)}, stdout: {e.stdout}, stderr: {e.stderr}"})
 
 @app.route('/simulations/<path:path>')
@@ -175,4 +212,5 @@ def serve_simulation_files(path):
     return send_from_directory(simulation_dir, path)
 
 if __name__ == '__main__':
+    os.makedirs('simulations', exist_ok=True)
     app.run(debug=True)

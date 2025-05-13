@@ -10,7 +10,7 @@ import tqdm
 
 from .framework.simple import Request, User, System, Queue, Balancer, SharedData, Service
 from .process_time_sampler import wp_time, request_time
-from .framework.stats import get_stats
+from .optimization.stats import get_stats
 
 import resource, sys
 resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))

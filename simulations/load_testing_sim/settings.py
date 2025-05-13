@@ -10,8 +10,8 @@ class KernelSettings:
 @dataclass_json
 @dataclass
 class ProcessTime:
-    mean_time: float
-    std_dev: float
+    mean_time: int
+    std_dev: int
     dist_type: Literal['gamma', 'lognorm', 'weibull']
 
 @dataclass_json
