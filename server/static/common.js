@@ -65,7 +65,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                             <div class="card-body">
                                 <h6>Nginx Settings</h6>
                                 <div class="mb-3">
-                                    <label for="nginx-queue-size-${i}${prefix}>Queue Size${isOptimization ? ' (Min)' : ''}</label>
+                                    <label for="nginx-queue-size-${i}" class="form-label">Queue Size${isOptimization ? ' (Min)' : ''}</label>
                                     <input type="number" id="nginx-queue-size-${i}${prefix} value="20">
                                 </div>
                                 ${isOptimization ? `
@@ -74,7 +74,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                                     <input type="number" id="nginx-queue-size-${i}-max" class="form-control" min="1" value="50">
                                 </div>` : ''}
                                 <div class="mb-3">
-                                    <label for="nginx-max-conn-${i}${prefix}>Max Connections${isOptimization ? ' (Min)' : ''}</label>
+                                    <label for="nginx-max-conn-${i}" class="form-label">Max Connections${isOptimization ? ' (Min)' : ''}</label>
                                     <input type="number" id="nginx-max-conn-${i}${prefix} value="1024">
                                 </div>
                                 ${isOptimization ? `
@@ -83,7 +83,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                                     <input type="number" id="nginx-max-conn-${i}-max" class="form-control" min="1" value="2048">
                                 </div>` : ''}
                                 <div class="mb-3">
-                                    <label for="nginx-timeout-${i}${prefix}>Timeout (ms${isOptimization ? ', Min' : ''})</label>
+                                    <label for="nginx-timeout-${i}" class="form-label">Timeout (ms${isOptimization ? ', Min' : ''})</label>
                                     <input type="number" id="nginx-timeout-${i}${prefix} value="30000">
                                 </div>
                                 ${isOptimization ? `
@@ -95,7 +95,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                                     <div class="card-body">
                                         <h6>Nginx Kernel Settings</h6>
                                         <div class="mb-3">
-                                            <label for="nginx-kernel-queue-size-${i}${prefix}>Queue Size${isOptimization ? ' (Min)' : ''}</label>
+                                            <label for="nginx-kernel-queue-size-${i}" class="form-label">Queue Size${isOptimization ? ' (Min)' : ''}</label>
                                             <input type="number" id="nginx-kernel-queue-size-${i}${prefix} value="0" min="0">
                                         </div>
                                         ${isOptimization ? `
@@ -113,7 +113,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                             <div class="card-body">
                                 <h6>WP Settings</h6>
                                 <div class="mb-3">
-                                    <label for="wp-core-num-${i}${prefix}>Core Num${isOptimization ? ' (Min)' : ''}</label>
+                                    <label for="wp-core-num-${i}" class="form-label">Core Num${isOptimization ? ' (Min)' : ''}</label>
                                     <input type="number" id="wp-core-num-${i}${prefix} value="1">
                                 </div>
                                 ${isOptimization ? `
@@ -122,7 +122,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                                     <input type="number" id="wp-core-num-${i}-max" class="form-control" min="1" value="4">
                                 </div>` : ''}
                                 <div class="mb-3">
-                                    <label for="wp-queue-size-${i}${prefix}>Queue Size${isOptimization ? ' (Min)' : ''}</label>
+                                    <label for="wp-queue-size-${i}" class="form-label">Queue Size${isOptimization ? ' (Min)' : ''}</label>
                                     <input type="number" id="wp-queue-size-${i}${prefix} value="1024">
                                 </div>
                                 ${isOptimization ? `
@@ -131,7 +131,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                                     <input type="number" id="wp-queue-size-${i}-max" class="form-control" min="1" value="2048">
                                 </div>` : ''}
                                 <div class="mb-3">
-                                    <label for="wp-max-conn-${i}${prefix}>Max Connections${isOptimization ? ' (Min)' : ''}</label>
+                                    <label for="wp-max-conn-${i}" class="form-label">Max Connections${isOptimization ? ' (Min)' : ''}</label>
                                     <input type="number" id="wp-max-conn-${i}${prefix} value="1024">
                                 </div>
                                 ${isOptimization ? `
@@ -140,7 +140,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                                     <input type="number" id="wp-max-conn-${i}-max" class="form-control" min="1" value="2048">
                                 </div>` : ''}
                                 <div class="mb-3">
-                                    <label for="wp-timeout-${i}${prefix}>Timeout (ms${isOptimization ? ', Min' : ''})</label>
+                                    <label for="wp-timeout-${i}" class="form-label">Timeout (ms${isOptimization ? ', Min' : ''})</label>
                                     <input type="number" id="wp-timeout-${i}${prefix} value="20000">
                                 </div>
                                 ${isOptimization ? `
@@ -194,7 +194,7 @@ function updateNginxWpBlocks(count, isOptimization = false, isRequestTime = fals
                                     <div class="card-body">
                                         <h6>WP Kernel Settings</h6>
                                         <div class="mb-3">
-                                            <label for="wp-kernel-queue-size-${i}${prefix}>Queue Size${isOptimization ? ' (Min)' : ''}</label>
+                                            <label for="wp-kernel-queue-size-${i}" class="form-label">Queue Size${isOptimization ? ' (Min)' : ''}</label>
                                             <input type="number" id="wp-kernel-queue-size-${i}${prefix} value="0" min="0">
                                         </div>
                                         ${isOptimization ? `
