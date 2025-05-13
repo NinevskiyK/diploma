@@ -5,6 +5,7 @@ import subprocess
 import os
 import json
 import logging
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -65,7 +66,7 @@ def settings():
     try:
         stand_settings = StandSettings.from_dict(data['stand_settings'])
         request_settings = RequestSettings.from_dict(data['request_settings'])
-        dir_name = f'simulations/{uuid4()}'
+        dir_name = f'simulations/{datetime.now().strftime('%H:%M:%S_%Y-%m-%d')}_{uuid4()}'
         os.makedirs(dir_name, exist_ok=True)
         
         # Сохраняем настройки в файл

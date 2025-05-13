@@ -69,7 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="col-6">
                                 <div class="card">
-                                    <div class="card-body">
+                                   
+<div class="card-body">
                                         <h6>WP Settings</h6>
                                         <div class="mb-3">
                                             <label for="wp-core-num-${i}" class="form-label">Core Num</label>
@@ -89,7 +90,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                         </div>
                                         <div class="mb-3">
                                             <label for="wp-process-mean-time-${i}" class="form-label">Process Mean Time (ms)</label>
-                                            <input type="number" class="form-control" id="wp-process-mean-time-${i}" value="10" min="1">
+                                            <input type="number" class="form-control" id="wp-process-mean-time-${i}" value="10" min="0" step="0.1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-process-std-dev-${i}" class="form-label">Process Std Dev (ms)</label>
+                                            <input type="number" class="form-control" id="wp-process-std-dev-${i}" value="2" min="0" step="0.1">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="wp-process-dist-type-${i}" class="form-label">Process Distribution Type</label>
+                                            <select class="form-select" id="wp-process-dist-type-${i}">
+                                                <option value="gamma" selected>Gamma</option>
+                                                <option value="lognorm">Lognorm</option>
+                                                <option value="weibull">Weibull</option>
+                                            </select>
                                         </div>
                                         <div class="card kernel-settings">
                                             <div class="card-body">
@@ -183,7 +196,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 request_settings: {
                     new_users_per_step: Array(maxUsers).fill(1),
                     step_time: parseInt(document.getElementById('user-step-time').value) || 3000,
-                    timeout: parseInt(document.getElementById('user-timeout').value) || 10000
+                    timeout: parseInt(document.getElementById('user-timeout').value) || 10000,
+                    type: document.getElementById('user-type').value || 'opened',
+                    enable_tracing: document.getElementById('user-enable-tracing').checked
                 }
             };
 
@@ -193,7 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     queue_size: parseInt(document.getElementById(`wp-queue-size-${i}`).value) || 1024,
                     max_conn: parseInt(document.getElementById(`wp-max-conn-${i}`).value) || 1024,
                     timeout: parseInt(document.getElementById(`wp-timeout-${i}`).value) || 20000,
-                    process_mean_time: parseInt(document.getElementById(`wp-process-mean-time-${i}`).value) || 10,
+                    process_time: {
+                        mean_time: parseFloat(document.getElementById(`wp-process-mean-time-${i}`).value) || 10,
+                        std_dev: parseFloat(document.getElementById(`wp-process-std-dev-${i}`).value) || 2,
+                        dist_type: document.getElementById(`wp-process-dist-type-${i}`).value || 'gamma'
+                    },
                     kernel_settings: {
                         kernel_queue_size: parseInt(document.getElementById(`wp-kernel-queue-size-${i}`).value) || 0
                     }
@@ -227,6 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 valid = false;
                 invalidFields.push(`request_settings.timeout: ${settings.request_settings.timeout}`);
             }
+            if (!['opened', 'closed'].includes(settings.request_settings.type)) {
+                valid = false;
+                invalidFields.push(`request_settings.type: ${settings.request_settings.type}`);
+            }
 
             Object.entries(settings.stand_settings.haproxy_setting).forEach(([key, val]) => {
                 if (key === 'kernel_settings') {
@@ -246,6 +269,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (isNaN(val.kernel_queue_size) || val.kernel_queue_size < 0) {
                             valid = false;
                             invalidFields.push(`wp_settings[${index}].kernel_settings.kernel_queue_size: ${val.kernel_queue_size}`);
+                        }
+                    } else if (key === 'process_time') {
+                        if (isNaN(val.mean_time) || val.mean_time <= 0) {
+                            valid = false;
+                            invalidFields.push(`wp_settings[${index}].process_time.mean_time: ${val.mean_time}`);
+                        }
+                        if (isNaN(val.std_dev) || val.std_dev < 0) {
+                            valid = false;
+                            invalidFields.push(`wp_settings[${index}].process_time.std_dev: ${val.std_dev}`);
+                        }
+                        if (!['gamma', 'lognorm', 'weibull'].includes(val.dist_type)) {
+                            valid = false;
+                            invalidFields.push(`wp_settings[${index}].process_time.dist_type: ${val.dist_type}`);
                         }
                     } else if (isNaN(val) || val <= 0) {
                         valid = false;

@@ -11,7 +11,7 @@
     <div class="container my-4" data-dir-name="{{ dir_name | safe }}">
         <h1 class="mb-4">Simulation Running</h1>
         {% if stand_settings and request_settings and dir_name %}
-            <p>Optimization in progress... Please wait.</p>
+            <p>Simulation in progress... Please wait.</p>
             <div id="grid-container">
                 <svg id="arrows-svg"></svg>
                 <!-- User Block -->
@@ -30,6 +30,14 @@
                             <div class="mb-3">
                                 <label class="form-label">Step Time (ms)</label>
                                 <input type="number" class="form-control" value="{{ request_settings['step_time'] if request_settings else 0 }}" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Request Type</label>
+                                <input type="text" class="form-control" value="{{ request_settings['type'] if request_settings else 'opened' }}" disabled>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="user-enable-tracing" {{ 'checked' if request_settings['enable_tracing'] else '' }} disabled>
+                                <label for="user-enable-tracing" class="form-check-label">Enable Tracing</label>
                             </div>
                         </div>
                     </div>
@@ -122,7 +130,15 @@
                                             </div>
                                             <div class="mb-3">
                                                 <label class="form-label">Process Mean Time (ms)</label>
-                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['process_mean_time'] if stand_settings else 0 }}" disabled>
+                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['process_time']['mean_time'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Process Std Dev (ms)</label>
+                                                <input type="number" class="form-control" value="{{ stand_settings['wp_settings'][i]['process_time']['std_dev'] if stand_settings else 0 }}" disabled>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Process Distribution Type</label>
+                                                <input type="text" class="form-control" value="{{ stand_settings['wp_settings'][i]['process_time']['dist_type'] if stand_settings else '' }}" disabled>
                                             </div>
                                             <div class="card kernel-settings">
                                                 <div class="card-body">

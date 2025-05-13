@@ -9,13 +9,20 @@ class KernelSettings:
 
 @dataclass_json
 @dataclass
+class ProcessTime:
+    mean_time: float
+    std_dev: float
+    dist_type: Literal['gamma', 'lognorm', 'weibull']
+
+@dataclass_json
+@dataclass
 class SystemSettings:
     kernel_settings: KernelSettings
+    process_time: ProcessTime
     core_num: int = 1
     queue_size: int = 1024
     max_conn: int = 1024
     timeout: int = 20000
-    process_mean_time: int = 10
 
 @dataclass_json
 @dataclass
@@ -39,3 +46,4 @@ class RequestSettings:
     step_time: int = 1000 * 10 * 60 // 200
     timeout: int = 10000
     type: Literal['opened', 'closed'] = 'opened'
+    enable_tracing: bool = True

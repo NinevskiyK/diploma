@@ -30,6 +30,7 @@ class Request:
     result: Literal['OK', 'KO'] = None
     user: 'User' = None
     cancelled: simpy.events.Event = None
+    enable_tracing: bool = False
 
     def log(self):
         self.shared_data.logger.info(logs.LogRequest(start_time=self.start_time, end_time=self.end_time, user=self.user.number, result=self.result, name=self.name))
@@ -48,8 +49,8 @@ class Request:
             return "__global__"
 
     def log_debug(self, message):
-        # self.shared_data.debug_logger.info(f"on {self.shared_data.env.now} [{self.calling_function()}] [{self.name}_{self.number}]: {message}")
-        pass
+        if self.enable_tracing:
+            self.shared_data.debug_logger.info(f"on {self.shared_data.env.now} [{self.calling_function()}] [{self.name}_{self.number}]: {message}")
 
 @dataclass
 class Service:
@@ -133,7 +134,7 @@ class Balancer(Service):
         # TODO: перенести в service
         if self.conn_num == self.max_conn:
             request.log_debug("KO as max_conn exeeded")
-            yield from request.user.response(request, 'KO')
+            # yield from request.user.response(request, 'KO')
             return
 
         self.conn_num += 1
@@ -153,7 +154,8 @@ class User:
 
     number = 1
 
-    def request(self, request: Request):
+    def request(self, request: Request, pre_wait: int = 0):
+        yield self.shared_data.env.timeout(pre_wait)
         self.request_done = self.shared_data.env.event()
         request.cancelled = self.shared_data.env.event()
 

@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     logsContainer.textContent = data.logs || 'Simulation running...';
                     logsContainer.scrollTop = logsContainer.scrollHeight;
                 } else if (data.status === 'completed') {
-                    logsContainer.textContent = 'Simulation completed! Opening results...';
+                    logsContainer.textContent += 'Simulation completed! Opening results...';
                     console.log('Attempting to open:', data.result_url); // Отладка
                     const newWindow = window.open(data.result_url, '_blank');
                     if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
