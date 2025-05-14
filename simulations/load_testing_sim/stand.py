@@ -10,7 +10,6 @@ import tqdm
 
 from .framework.simple import Request, User, System, Queue, Balancer, SharedData, Service
 from .process_time_sampler import wp_time, request_time
-from .optimization.stats import get_stats
 
 import resource, sys
 resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
@@ -80,4 +79,3 @@ def run_simulation(dir_name, stand_settings: StandSettings, request_settings: Re
 def main(stand_settings: StandSettings, request_settings: RequestSettings, dir_name):
     os.makedirs(dir_name, exist_ok=True)
     run_simulation(dir_name, stand_settings, request_settings)
-    return get_stats(f'{dir_name}/simulation.log')

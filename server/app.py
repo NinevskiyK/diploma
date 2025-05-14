@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory
 from load_testing_sim.settings import StandSettings, RequestSettings
+from load_testing_sim.optimization.optimize import optimize_params
 from uuid import uuid4
 import subprocess
 import os
@@ -100,7 +101,21 @@ def params_optimization():
         if not settings:
             app.logger.error("No settings provided for params-optimization")
             return jsonify({'error': 'No settings provided'}), 400
+            
         app.logger.debug(f"Params Optimization settings: {json.dumps(settings, indent=2)}")
+
+        try:
+            stand_settings = StandSettings.from_dict(settings['stand_settings'])
+            request_settings = RequestSettings.from_dict(settings['request_settings'])
+        except:
+            app.logger.error("Wrong settings provided for params-optimization")
+            return jsonify({'error': 'Wrong settings provided'}), 400
+
+        unique_id = f"{datetime.now().strftime('%H:%M:%S_%Y-%m-%d')}_{uuid4()}"
+        dir_name = f"params_optimizations/{unique_id}"
+        os.makedirs(dir_name, exist_ok=True)
+        optimize_params(settings, dir_name)
+
         return jsonify({'message': 'Optimization parameters received'})
 
 @app.route('/request-time-optimization', methods=['GET', 'POST'])

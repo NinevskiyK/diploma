@@ -67,7 +67,10 @@ def parse_logs(file_path):
 def get_stats(file_path):
     try:
         req_per_second, resp_mean_times, fails_per_second = parse_logs(file_path)
-        return (get_degradation_level(req_per_second, resp_mean_times), get_fail_level(req_per_second, fails_per_second))
+        return {
+            "degradation_rps": get_degradation_level(req_per_second, resp_mean_times),
+            "fail_rps": get_fail_level(req_per_second, fails_per_second)
+        }
     except:
         print("Got no stats")
 
