@@ -103,6 +103,25 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 console.log('Optimization response:', data);
                 alert(data.message);
+                if (data.dashboard_url) {
+                    // Задержка 2 секунды перед открытием дашборда
+                    setTimeout(() => window.open(data.dashboard_url, '_blank'), 2000);
+                }
+                // Периодическая проверка статуса оптимизации
+                if (data.unique_id) {
+                    const checkStatus = setInterval(() => {
+                        fetch(`/optimization-status/${data.unique_id}`)
+                            .then(res => res.json())
+                            .then(statusData => {
+                                console.log('Optimization status:', statusData);
+                                if (statusData.status === 'completed') {
+                                    clearInterval(checkStatus);
+                                    alert('Optimization completed!');
+                                }
+                            })
+                            .catch(err => console.error('Status check error:', err));
+                    }, 5000);
+                }
             })
             .catch(error => {
                 console.error('Optimization error:', error);

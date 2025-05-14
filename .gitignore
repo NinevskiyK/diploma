@@ -167,6 +167,7 @@ cython_debug/
 
 **logs*/
 server/simulations
+server/params_optimizations
 server/simulations.json
 .vscode
 tmp

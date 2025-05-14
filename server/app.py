@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from load_testing_sim.settings import StandSettings, RequestSettings
 from load_testing_sim.optimization.optimize import optimize_params
 from uuid import uuid4
@@ -7,14 +7,27 @@ import os
 import json
 import logging
 from datetime import datetime
+import socket
+import time
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG)
 
-# Хранилище для запущенных процессов
+# Хранилище для процессов (симуляции и оптимизации)
 processes = {}
+
+def find_free_port():
+    """Находит свободный порт в диапазоне 8000–9000."""
+    for port in range(8000, 9000):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('localhost', port))
+                return port
+            except OSError:
+                continue
+    raise RuntimeError("No free ports available in range 8000–9000")
 
 @app.route('/', methods=['GET'])
 def index():
@@ -81,11 +94,11 @@ if __name__ == '__main__':
                 'pid': process.pid,
                 'process': process,
                 'status': 'running',
+                'type': 'simulation',
                 'result_url': f"/simulations/{unique_id}/index.html"
             }
             app.logger.debug(f"Started simulation in {dir_name} with PID {process.pid}, logging to {log_file}")
 
-            # Редирект на results с clean_dir_name
             return jsonify({'dir_name': unique_id})
         except Exception as e:
             app.logger.error(f"Error processing simulation settings: {str(e)}")
@@ -104,19 +117,134 @@ def params_optimization():
             
         app.logger.debug(f"Params Optimization settings: {json.dumps(settings, indent=2)}")
 
-        try:
-            stand_settings = StandSettings.from_dict(settings['stand_settings'])
-            request_settings = RequestSettings.from_dict(settings['request_settings'])
-        except:
-            app.logger.error("Wrong settings provided for params-optimization")
-            return jsonify({'error': 'Wrong settings provided'}), 400
-
         unique_id = f"{datetime.now().strftime('%H:%M:%S_%Y-%m-%d')}_{uuid4()}"
         dir_name = f"params_optimizations/{unique_id}"
         os.makedirs(dir_name, exist_ok=True)
-        optimize_params(settings, dir_name)
+        
+        # Путь к базе данных Optuna
+        db_path = f"sqlite:///{dir_name}/params-optimization.db"
 
-        return jsonify({'message': 'Optimization parameters received'})
+        # Сохранение настроек
+        settings_file = f"{dir_name}/settings.json"
+        with open(settings_file, 'w') as f:
+            json.dump(settings, f, indent=2)
+
+        # Создание скрипта оптимизации
+        run_script = """
+from load_testing_sim.optimization.optimize import optimize_params
+import json
+import sys
+
+if __name__ == '__main__':
+    settings_file = sys.argv[1]
+    dir_name = sys.argv[2]
+    with open(settings_file, 'r') as f:
+        settings = json.load(f)
+    optimize_params(settings, dir_name)
+"""
+        with open(f"{dir_name}/run_optim.py", 'w') as f:
+            f.write(run_script)
+
+        # Запуск оптимизации
+        log_file = f"{dir_name}/run.log"
+        process = subprocess.Popen(
+            ['python3', f"{dir_name}/run_optim.py", settings_file, dir_name],
+            stdout=open(log_file, 'w'),
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+
+        time.sleep(3)
+        # Находим свободный порт для Optuna Dashboard
+        try:
+            dashboard_port = find_free_port()
+        except RuntimeError as e:
+            app.logger.error(f"Failed to find free port: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+        dashboard_log_file = f"{dir_name}/dashboard.log"
+        db_file_path = os.path.abspath(f"{dir_name}/params-optimization.db")
+        dashboard_process = subprocess.Popen(
+            ['optuna-dashboard', f"sqlite:///{db_file_path}", '--port', str(dashboard_port)],
+            stdout=open(dashboard_log_file, 'w'),
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+
+        # Даем процессу немного времени на запуск
+        time.sleep(3)
+        if dashboard_process.poll() is not None:
+            app.logger.error(f"Optuna Dashboard failed to start for {unique_id}, check {dashboard_log_file}")
+            with open(dashboard_log_file, 'r') as f:
+                logs = f.read()
+            return jsonify({'error': f"Optuna Dashboard failed to start: {logs}"}), 500
+
+        # Сохранение информации о процессе
+        processes[unique_id] = {
+            'pid': process.pid,
+            'process': process,
+            'dashboard_pid': dashboard_process.pid,
+            'dashboard_process': dashboard_process,
+            'dashboard_port': dashboard_port,
+            'status': 'running',
+            'type': 'optimization',
+            'dashboard_url': f"http://localhost:{dashboard_port}/dashboard"
+        }
+        app.logger.debug(f"Started optimization in {dir_name} with PID {process.pid}, logging to {log_file}")
+        app.logger.debug(f"Started Optuna Dashboard for {unique_id} on port {dashboard_port} with PID {dashboard_process.pid}, logging to {dashboard_log_file}")
+
+        return jsonify({
+            'message': 'Optimization started',
+            'unique_id': unique_id,
+            'dashboard_url': f"http://127.0.0.1:{dashboard_port}/dashboard"
+        })
+
+@app.route('/optimization-status/<unique_id>', methods=['GET'])
+def optimization_status(unique_id):
+    app.logger.debug(f"Received status request for optimization {unique_id}")
+
+    if unique_id not in processes or processes[unique_id]['type'] != 'optimization':
+        app.logger.warning(f"Optimization {unique_id} not found in processes")
+        db_path = f"params_optimizations/{unique_id}/params-optimization.db"
+        if os.path.exists(db_path):
+            app.logger.debug(f"Found params-optimization.db for {unique_id}, assuming completed")
+            return jsonify({"status": "completed", "dashboard_url": ""})
+        return jsonify({"status": "not_found"}), 404
+
+    optim = processes[unique_id]
+    process = optim['process']
+    return_code = process.poll()
+
+    app.logger.debug(f"Process status for {unique_id}, PID {optim['pid']}, return_code: {return_code}")
+
+    if return_code is None:
+        log_file = f"params_optimizations/{unique_id}/run.log"
+        logs = "Optimization running..."
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                logs = f.read()
+        app.logger.debug(f"Optimization {unique_id} running, logs: {logs[:100]}...")
+        return jsonify({
+            "status": "running",
+            "logs": logs,
+            "dashboard_url": optim['dashboard_url']
+        })
+    else:
+        app.logger.debug(f"Optimization {unique_id} process completed with return_code {return_code}")
+        optim['status'] = 'completed'
+        # Завершаем процесс Optuna Dashboard
+        if 'dashboard_process' in optim:
+            try:
+                optim['dashboard_process'].terminate()
+                optim['dashboard_process'].wait(timeout=5)
+                app.logger.debug(f"Terminated Optuna Dashboard for {unique_id}, PID {optim['dashboard_pid']}")
+            except subprocess.TimeoutExpired:
+                app.logger.warning(f"Failed to terminate Optuna Dashboard for {unique_id}, killing process")
+                optim['dashboard_process'].kill()
+        return jsonify({
+            "status": "completed",
+            "dashboard_url": ""
+        })
 
 @app.route('/request-time-optimization', methods=['GET', 'POST'])
 def request_time_optimization():
@@ -153,7 +281,6 @@ def results(dir_name):
             with open(results_path) as f:
                 results = json.load(f)
 
-        # Проверяем, существует ли index.html
         result_url = f"/simulations/{clean_dir_name}/index.html" if os.path.exists(index_path) else ''
         app.logger.debug(f"Rendering results.html for {clean_dir_name}, result_url: {result_url}")
 
@@ -165,10 +292,10 @@ def results(dir_name):
 @app.route('/status/<path:dir_name>', methods=['GET'])
 def check_status(dir_name):
     clean_dir_name = dir_name.replace('simulations/', '') if dir_name.startswith('simulations/') else dir_name
-    app.logger.debug(f"Received status request for {clean_dir_name}")
+    app.logger.debug(f"Received status request for simulation {clean_dir_name}")
 
-    if clean_dir_name not in processes:
-        app.logger.warning(f"Simulation {clean_dir_name} not found in processes: {list(processes.keys())}")
+    if clean_dir_name not in processes or processes[clean_dir_name]['type'] != 'simulation':
+        app.logger.warning(f"Simulation {clean_dir_name} not found in processes")
         index_path = f"simulations/{clean_dir_name}/index.html"
         if os.path.exists(index_path):
             app.logger.debug(f"Found index.html for {clean_dir_name}, assuming completed")
@@ -228,4 +355,5 @@ def serve_simulation_files(path):
 
 if __name__ == '__main__':
     os.makedirs('simulations', exist_ok=True)
-    app.run(debug=True)
+    os.makedirs('params_optimizations', exist_ok=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
