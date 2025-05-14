@@ -83,8 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     max_conn: collectParam(`wp_max_conn_${i}`, 'int', null, null, null, `wp-max-conn-${i}`),
                     timeout: collectParam(`wp_timeout_${i}`, 'int', null, null, null, `wp-timeout-${i}`),
                     process_time: {
-                        mean_time: collectParam(`wp_process_mean_time_${i}`, 'float', `wp-process-mean-time-${i}-min`, `wp-process-mean-time-${i}-max`, null, null, true),
-                        std_dev: collectParam(`wp_process_std_dev_${i}`, 'float', `wp-process-std-dev-${i}-min`, `wp-process-std-dev-${i}-max`, null, null, true),
+                        mean_time: collectParam(`wp_process_mean_time_${i}`, 'int', `wp-process-mean-time-${i}-min`, `wp-process-mean-time-${i}-max`, null, null, true),
+                        std_dev: collectParam(`wp_process_std_dev_${i}`, 'int', `wp-process-std-dev-${i}-min`, `wp-process-std-dev-${i}-max`, null, null, true),
                         dist_type: collectParam(`wp_process_dist_type_${i}`, 'categorical', null, null, [
                             `wp-process-dist-type-${i}-gamma`,
                             `wp-process-dist-type-${i}-lognorm`,
@@ -119,6 +119,25 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 console.log('Optimization response:', data);
                 alert(data.message);
+                if (data.dashboard_url) {
+                    // Задержка 2 секунды перед открытием дашборда
+                    setTimeout(() => window.open(data.dashboard_url, '_blank'), 2000);
+                }
+                // Периодическая проверка статуса оптимизации
+                if (data.unique_id) {
+                    const checkStatus = setInterval(() => {
+                        fetch(`/optimization-status/${data.unique_id}`)
+                            .then(res => res.json())
+                            .then(statusData => {
+                                console.log('Optimization status:', statusData);
+                                if (statusData.status === 'completed') {
+                                    clearInterval(checkStatus);
+                                    alert('Optimization completed!');
+                                }
+                            })
+                            .catch(err => console.error('Status check error:', err));
+                    }, 5000);
+                }
             })
             .catch(error => {
                 console.error('Optimization error:', error);

@@ -48,7 +48,7 @@ def set_nested_value(config: Dict[str, Any], path: List[str], value: Any) -> Non
         current[last_key] = value
 
 
-def objective(trial: optuna.Trial, dir_name: str, config: Dict[str, Any], optimizable_params: List[Tuple[str, Dict[str, Any]]]) -> Tuple[float, float]:
+def objective(trial: optuna.Trial, dir_name: str, config: Dict[str, Any], optimizable_params: List[Tuple[str, Dict[str, Any]]], degradation_limit: int, fail_limit: int) -> Tuple[float, float]:
     trial_config = copy.deepcopy(config)
     
     for name, param_info in optimizable_params:
@@ -62,7 +62,7 @@ def objective(trial: optuna.Trial, dir_name: str, config: Dict[str, Any], optimi
     dir_name += "/" + str(uuid4())
     os.makedirs(dir_name, exist_ok=True)
     run_simulation(dir_name, stand_settings, request_settings)
-    stats = get_stats(f'{dir_name}/simulation.log')
+    stats = get_stats(f'{dir_name}/simulation.log', degradation_limit, fail_limit)
     
     degradation_rps = stats.get('degradation_rps', 0)
     fail_rps = stats.get('fail_rps', 0)
@@ -82,8 +82,8 @@ def optimize_params(optimization_config: Dict[str, Any], dir_name: str, study_na
         storage=storage_name,
         directions=["maximize", "maximize"],
         load_if_exists=True,
-
     )
+    study.set_metric_names(["degradataion rps", "fail rps"])
     
     study.optimize(
         lambda trial: objective(trial, dir_name, optimization_config, optimizable_params),
@@ -95,4 +95,37 @@ def optimize_params(optimization_config: Dict[str, Any], dir_name: str, study_na
     print("Best parameters:", best_params)
     
     return best_params
+
+def optimize_time(optimization_config: Dict[str, Any], dir_name: str, study_name: str = "params-optimization", n_trials = 10000, n_jobs = 2) -> Dict[str, Any]:
+    os.makedirs(dir_name, exist_ok=True)
+    limits = optimization_config["limits"]
+    optimizable_params = extract_optimizable_params(optimization_config)
+
+    if not optimizable_params:
+        raise ValueError("No optimizable parameters found in the configuration.")
+    
+    storage_name = f"sqlite:///{dir_name}/{study_name}.db"
+    study = optuna.create_study(
+        study_name=study_name,
+        storage=storage_name,
+        directions=["minimize", "minimize"],
+        load_if_exists=True,
+    )
+    study.set_metric_names(["degradataion rps quadratic bias", "fail rps quadratic bias"])
+    
+    def trial(trial):
+        degradation_rps, fail_rps = objective(trial, dir_name, optimization_config, optimizable_params, limits["degradation_limit"], limits["fail_limit"])
+        return (degradation_rps - limits["degradation_rps"])**2, (fail_rps - limits["fail_rps"]) ** 2
+
+    study.optimize(
+        trial,
+        n_trials=n_trials,
+        n_jobs=n_jobs
+    )
+    
+    best_params = study.best_params
+    print("Best parameters:", best_params)
+    
+    return best_params
+
 

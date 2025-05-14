@@ -1,3 +1,4 @@
+from typing import Literal
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from load_testing_sim.settings import StandSettings, RequestSettings
 from load_testing_sim.optimization.optimize import optimize_params
@@ -104,34 +105,19 @@ if __name__ == '__main__':
             app.logger.error(f"Error processing simulation settings: {str(e)}")
             return jsonify({"status": "error", "message": f"Invalid settings: {str(e)}"}), 400
 
-@app.route('/params-optimization', methods=['GET', 'POST'])
-def params_optimization():
-    if request.method == 'GET':
-        app.logger.debug("Rendering params-optimization.html")
-        return render_template('params-optimization.html')
-    elif request.method == 'POST':
-        settings = request.get_json()
-        if not settings:
-            app.logger.error("No settings provided for params-optimization")
-            return jsonify({'error': 'No settings provided'}), 400
-            
-        app.logger.debug(f"Params Optimization settings: {json.dumps(settings, indent=2)}")
-
+def run_optimization(app, settings, optimize_name: Literal['optimize_params', 'optimize_time']):
         unique_id = f"{datetime.now().strftime('%H:%M:%S_%Y-%m-%d')}_{uuid4()}"
         dir_name = f"params_optimizations/{unique_id}"
         os.makedirs(dir_name, exist_ok=True)
         
-        # Путь к базе данных Optuna
-        db_path = f"sqlite:///{dir_name}/params-optimization.db"
-
         # Сохранение настроек
         settings_file = f"{dir_name}/settings.json"
         with open(settings_file, 'w') as f:
             json.dump(settings, f, indent=2)
 
         # Создание скрипта оптимизации
-        run_script = """
-from load_testing_sim.optimization.optimize import optimize_params
+        run_script = f"""
+from load_testing_sim.optimization.optimize import optimize_params, optimize_time
 import json
 import sys
 
@@ -140,7 +126,7 @@ if __name__ == '__main__':
     dir_name = sys.argv[2]
     with open(settings_file, 'r') as f:
         settings = json.load(f)
-    optimize_params(settings, dir_name)
+    {optimize_name}(settings, dir_name)
 """
         with open(f"{dir_name}/run_optim.py", 'w') as f:
             f.write(run_script)
@@ -154,13 +140,13 @@ if __name__ == '__main__':
             text=True
         )
 
-        time.sleep(3)
+        time.sleep(5)
         # Находим свободный порт для Optuna Dashboard
         try:
             dashboard_port = find_free_port()
         except RuntimeError as e:
             app.logger.error(f"Failed to find free port: {str(e)}")
-            return jsonify({'error': str(e)}), 500
+            return -1, -1
 
         dashboard_log_file = f"{dir_name}/dashboard.log"
         db_file_path = os.path.abspath(f"{dir_name}/params-optimization.db")
@@ -172,12 +158,12 @@ if __name__ == '__main__':
         )
 
         # Даем процессу немного времени на запуск
-        time.sleep(3)
+        time.sleep(5)
         if dashboard_process.poll() is not None:
             app.logger.error(f"Optuna Dashboard failed to start for {unique_id}, check {dashboard_log_file}")
             with open(dashboard_log_file, 'r') as f:
                 logs = f.read()
-            return jsonify({'error': f"Optuna Dashboard failed to start: {logs}"}), 500
+            return -1, -1
 
         # Сохранение информации о процессе
         processes[unique_id] = {
@@ -188,11 +174,32 @@ if __name__ == '__main__':
             'dashboard_port': dashboard_port,
             'status': 'running',
             'type': 'optimization',
-            'dashboard_url': f"http://localhost:{dashboard_port}/dashboard"
+            'dashboard_url': f"http://127.0.0.1:{dashboard_port}/dashboard"
         }
+
         app.logger.debug(f"Started optimization in {dir_name} with PID {process.pid}, logging to {log_file}")
         app.logger.debug(f"Started Optuna Dashboard for {unique_id} on port {dashboard_port} with PID {dashboard_process.pid}, logging to {dashboard_log_file}")
 
+        return dashboard_port, unique_id
+        
+
+@app.route('/params-optimization', methods=['GET', 'POST'])
+def params_optimization():
+    if request.method == 'GET':
+        app.logger.debug("Rendering params-optimization.html")
+        return render_template('params-optimization.html')
+    elif request.method == 'POST':
+        settings = request.get_json()
+        if not settings:
+            app.logger.error("No settings provided for params-optimization")
+            return jsonify({'error': 'No settings provided'}), 400
+            
+        app.logger.debug(f"Params Optimization settings: {json.dumps(settings, indent=2)}")
+
+        dashboard_port, unique_id = run_optimization(app, settings, 'optimize_params')
+
+        if dashboard_port == -1:
+            return jsonify({'error': 'internal server error'}), 500
         return jsonify({
             'message': 'Optimization started',
             'unique_id': unique_id,
@@ -257,7 +264,16 @@ def request_time_optimization():
             app.logger.error("No settings provided for request-time-optimization")
             return jsonify({'error': 'No settings provided'}), 400
         app.logger.debug(f"Request Time Optimization settings: {json.dumps(settings, indent=2)}")
-        return jsonify({'message': 'Optimization parameters received'})
+
+        dashboard_port, unique_id = run_optimization(app, settings, 'optimize_time')
+
+        if dashboard_port == -1:
+            return jsonify({'error': 'internal server error'}), 500
+        return jsonify({
+            'message': 'Optimization started',
+            'unique_id': unique_id,
+            'dashboard_url': f"http://127.0.0.1:{dashboard_port}/dashboard"
+        })
 
 @app.route('/results/<path:dir_name>', methods=['GET'])
 def results(dir_name):
