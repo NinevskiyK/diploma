@@ -1,0 +1,10 @@
+{
+  "simulation": "wordstress.LinearRequestRateGrowRun",
+  "simulationId": "linearrequestrategrowrun",
+  "start": 1747413463459,
+  "description": "",
+  "scenarios": ["Linear RPS"],
+  "assertions": [
+
+  ]
+}
