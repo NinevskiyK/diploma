@@ -13,7 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     nginx_settings: [],
                     wp_settings: []
                 },
-                server_count: serverNum
+                server_count: serverNum,
+                limits: {} // Ограничения для максимизации RPS
             };
 
             function collectParam(name, type, minId, maxId, choicesIds, singleId) {
@@ -92,6 +93,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
+            // Сбор ограничений для максимизации RPS
+            settings.limits = {
+                degradation_limit: parseInt(document.getElementById('degradation-limit').value) || 1000,
+                fail_limit: parseFloat(document.getElementById('fail-limit').value) || 5
+            };
+            if (Object.values(settings.limits).some(v => isNaN(v) || v <= 0)) {
+                alert('All limit fields must be positive numbers');
+                return;
+            }
+
             console.log('Params Optimization settings:', settings);
 
             fetch('/params-optimization', {
@@ -104,10 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Optimization response:', data);
                 alert(data.message);
                 if (data.dashboard_url) {
-                    // Задержка 2 секунды перед открытием дашборда
                     setTimeout(() => window.open(data.dashboard_url, '_blank'), 2000);
                 }
-                // Периодическая проверка статуса оптимизации
                 if (data.unique_id) {
                     const checkStatus = setInterval(() => {
                         fetch(`/optimization-status/${data.unique_id}`)

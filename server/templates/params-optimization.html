@@ -237,11 +237,29 @@
                                         </div>
                                     </div>
                                 </div>
-                            
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div class="mt-4">
+            <h3>Optimization Constraints</h3>
+            <div class="mb-3">
+                <label for="degradation-limit" class="form-label">Degradation Limit (ms)</label>
+                <input type="number" class="form-control" id="degradation-limit" value="1000" min="1">
+            </div>
+            <div class="mb-3">
+                <label for="fail-limit" class="form-label">Fail Limit (%)</label>
+                <input type="number" class="form-control" id="fail-limit" value="5" min="0" step="0.1">
+            </div>
+            <div class="alert alert-info mt-3">
+                <strong>ℹ️ Note:</strong> 
+                <ul>
+                    <li><strong>Degradation Limit</strong>: The maximum average response time (ms) before the system is considered degraded.</li>
+                    <li><strong>Fail Limit</strong>: The maximum percentage of unanswered requests before the system is considered failed.</li>
+                    <li><strong>Purpose</strong>: Parameter optimization tunes system settings (e.g., queue sizes, connection limits) to maximize the requests per second (RPS) the system can handle while keeping response times below the degradation limit and error rates below the fail limit.</li>
+                </ul>
             </div>
         </div>
         <button class="btn btn-primary mt-4" id="start-optimization-btn">Start Optimization</button>

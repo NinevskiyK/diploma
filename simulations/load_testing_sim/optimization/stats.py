@@ -79,7 +79,11 @@ def parse_logs(file_path, group_size = 1000):
         response_mean_times.append(0)
         fails_percent_per_group.append(0)
     else:
-        response_mean_times.append(sum_req_times // (req_cnt - fails_num))
+        if req_cnt == fails_num:
+            response_mean_times.append(10**10)
+        else:
+            response_mean_times.append(sum_req_times // (req_cnt - fails_num))
+
         fails_percent_per_group.append(fails_num / req_cnt)
 
     return (requests_per_group, response_mean_times, fails_percent_per_group)
@@ -92,4 +96,3 @@ def get_stats(file_path, degradation_limit, fail_limit):
         "degradation_rps": get_degradation_level(req_per_second, resp_mean_times, degradation_limit),
         "fail_rps": get_fail_level(req_per_second, fails_percent_per_second, fail_limit)
     }
-    

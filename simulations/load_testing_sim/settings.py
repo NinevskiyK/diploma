@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 @dataclass_json
 @dataclass
@@ -42,8 +42,13 @@ class StandSettings:
 @dataclass_json
 @dataclass
 class RequestSettings:
-    new_users_per_step: List[int] = field(default_factory=lambda: [1 for _ in range(200)])
+    max_users: Optional[int] = None
+    new_users_per_step: List[int] = None
     step_time: int = 1000 * 10 * 60 // 200
     timeout: int = 10000
     type: Literal['opened', 'closed'] = 'opened'
     enable_tracing: bool = True
+
+    def __post_init__(self):
+        if self.new_users_per_step is None:
+            self.new_users_per_step = [1] * self.max_users

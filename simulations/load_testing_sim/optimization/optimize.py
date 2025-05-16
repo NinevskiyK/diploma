@@ -72,6 +72,7 @@ def objective(trial: optuna.Trial, dir_name: str, config: Dict[str, Any], optimi
 def optimize_params(optimization_config: Dict[str, Any], dir_name: str, study_name: str = "params-optimization", n_trials: int = 10000, n_jobs: int = 2) -> Dict[str, Any]:
     os.makedirs(dir_name, exist_ok=True)
     optimizable_params = extract_optimizable_params(optimization_config)
+    limits = optimization_config["limits"]
 
     if not optimizable_params:
         raise ValueError("No optimizable parameters found in the configuration.")
@@ -86,7 +87,7 @@ def optimize_params(optimization_config: Dict[str, Any], dir_name: str, study_na
     study.set_metric_names(["degradataion rps", "fail rps"])
     
     study.optimize(
-        lambda trial: objective(trial, dir_name, optimization_config, optimizable_params),
+        lambda trial: objective(trial, dir_name, optimization_config, optimizable_params, limits["degradation_limit"], limits["fail_limit"]),
         n_trials=n_trials,
         n_jobs=n_jobs
     )

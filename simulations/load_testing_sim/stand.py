@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import numpy as np
@@ -61,6 +62,9 @@ def run_steps(request_settings: RequestSettings, system: Union[System, Balancer]
                 yield shared_data.env.timeout(1000)
 
 def run_simulation(dir_name, stand_settings: StandSettings, request_settings: RequestSettings):
+    with open(f"{dir_name}/settings.json", "w") as f:
+        json.dump({"stand_settings": stand_settings.to_dict(), "request_settings": request_settings.to_dict()}, f)
+
     log_file = f'{dir_name}/simulation.log'
     debug_log_file = f'{dir_name}/debug.log'
     logger = create_logger(log_file)
