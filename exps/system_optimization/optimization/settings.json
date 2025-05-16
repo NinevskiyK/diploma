@@ -1,0 +1,151 @@
+{
+  "request_settings": {
+    "max_users": {
+      "type": "int",
+      "bounds": [
+        400,
+        400
+      ]
+    },
+    "timeout": {
+      "type": "int",
+      "bounds": [
+        10000,
+        10000
+      ]
+    },
+    "step_time": {
+      "type": "int",
+      "bounds": [
+        3000,
+        3000
+      ]
+    },
+    "type": {
+      "type": "categorical",
+      "choices": [
+        "opened"
+      ]
+    },
+    "enable_tracing": false
+  },
+  "stand_settings": {
+    "haproxy_setting": {
+      "queue_size": {
+        "type": "int",
+        "bounds": [
+          1,
+          100
+        ]
+      },
+      "max_conn": {
+        "type": "int",
+        "bounds": [
+          10,
+          5000
+        ]
+      },
+      "timeout": {
+        "type": "int",
+        "bounds": [
+          5000,
+          20000
+        ]
+      },
+      "kernel_settings": {
+        "kernel_queue_size": {
+          "type": "int",
+          "bounds": [
+            0,
+            100
+          ]
+        }
+      }
+    },
+    "nginx_settings": [
+      {
+        "queue_size": {
+          "type": "int",
+          "bounds": [
+            1,
+            100
+          ]
+        },
+        "max_conn": {
+          "type": "int",
+          "bounds": [
+            10,
+            5000
+          ]
+        },
+        "timeout": {
+          "type": "int",
+          "bounds": [
+            5000,
+            20000
+          ]
+        },
+        "kernel_settings": {
+          "kernel_queue_size": {
+            "type": "int",
+            "bounds": [
+              0,
+              100
+            ]
+          }
+        }
+      }
+    ],
+    "wp_settings": [
+      {
+        "core_num": {
+          "type": "int",
+          "bounds": [
+            1,
+            1
+          ]
+        },
+        "queue_size": {
+          "type": "int",
+          "bounds": [
+            1,
+            100
+          ]
+        },
+        "max_conn": {
+          "type": "int",
+          "bounds": [
+            10,
+            5000
+          ]
+        },
+        "timeout": {
+          "type": "int",
+          "bounds": [
+            5000,
+            20000
+          ]
+        },
+        "process_time": {
+          "mean_time": 6,
+          "std_dev": 5,
+          "dist_type": "gamma"
+        },
+        "kernel_settings": {
+          "kernel_queue_size": {
+            "type": "int",
+            "bounds": [
+              0,
+              100
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "server_count": 1,
+  "limits": {
+    "degradation_limit": 1000,
+    "fail_limit": 10
+  }
+}
