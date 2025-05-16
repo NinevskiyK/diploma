@@ -1,0 +1,71 @@
+{
+  "request_settings": {
+    "max_users": 200,
+    "timeout": 10000,
+    "step_time": 3000,
+    "type": "opened",
+    "enable_tracing": false
+  },
+  "stand_settings": {
+    "haproxy_setting": {
+      "queue_size": 20,
+      "max_conn": 1024,
+      "timeout": 30000,
+      "kernel_settings": {
+        "kernel_queue_size": 0
+      }
+    },
+    "nginx_settings": [
+      {
+        "queue_size": 20,
+        "max_conn": 1024,
+        "timeout": 30000,
+        "kernel_settings": {
+          "kernel_queue_size": 0
+        }
+      }
+    ],
+    "wp_settings": [
+      {
+        "core_num": 1,
+        "queue_size": 1024,
+        "max_conn": 1024,
+        "timeout": 20000,
+        "process_time": {
+          "mean_time": {
+            "type": "int",
+            "bounds": [
+              5,
+              30
+            ]
+          },
+          "std_dev": {
+            "type": "int",
+            "bounds": [
+              1,
+              30
+            ]
+          },
+          "dist_type": {
+            "type": "categorical",
+            "choices": [
+              "gamma",
+              "lognorm",
+              "weibull"
+            ]
+          }
+        },
+        "kernel_settings": {
+          "kernel_queue_size": 0
+        }
+      }
+    ]
+  },
+  "server_count": 1,
+  "limits": {
+    "degradation_limit": 1000,
+    "degradation_rps": 100,
+    "fail_limit": 10,
+    "fail_rps": 130
+  }
+}

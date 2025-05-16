@@ -1,0 +1,10 @@
+{
+  "simulation": "stand",
+  "simulationId": "linearrequestrategrowrun",
+  "start": 0,
+  "description": "",
+  "scenarios": ["user"],
+  "assertions": [
+
+  ]
+}
