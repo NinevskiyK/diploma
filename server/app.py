@@ -263,7 +263,7 @@ def request_time_optimization():
         if not settings:
             app.logger.error("No settings provided for request-time-optimization")
             return jsonify({'error': 'No settings provided'}), 400
-        app.logger.debug(f"Request Time Optimization settings: {json.dumps(settings, indent=2)}")
+        app.logger.debug(f"Request Time Inference settings: {json.dumps(settings, indent=2)}")
 
         dashboard_port, unique_id = run_optimization(app, settings, 'optimize_time')
 

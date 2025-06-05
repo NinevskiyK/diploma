@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.stats import gamma, lognorm, weibull_min
+from scipy.stats import gamma, lognorm, weibull_min, poisson
 from scipy.special import gamma as gamma_func
 
 def wp_time(mean_time: float = 4, std_dev: float = 2, dist_type: str = 'gamma'):

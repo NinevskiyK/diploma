@@ -10,9 +10,9 @@ class KernelSettings:
 @dataclass_json
 @dataclass
 class ProcessTime:
-    mean_time: int
-    std_dev: int
-    dist_type: Literal['gamma', 'lognorm', 'weibull']
+    mean_time: int = 5
+    std_dev: int = 5
+    dist_type: Literal['gamma', 'lognorm', 'weibull'] = 'lognorm'
 
 @dataclass_json
 @dataclass
@@ -42,11 +42,11 @@ class StandSettings:
 @dataclass_json
 @dataclass
 class RequestSettings:
-    max_users: Optional[int] = None
+    max_users: Optional[int] = 100
     new_users_per_step: List[int] = None
     step_time: int = 1000 * 10 * 60 // 200
     timeout: int = 10000
-    type: Literal['opened', 'closed'] = 'opened'
+    type: Literal['opened', 'closed'] = 'closed'
     enable_tracing: bool = True
 
     def __post_init__(self):

@@ -7,7 +7,8 @@ if __name__ == "__main__":
     dir_name = "logs/logs_" + time.strftime('%Y-%m-%d_%H:%M:%S') + "_" + str(random.randint(0, 100))
 
     kernel_settings = KernelSettings()
-    wp_settings = SystemSettings(kernel_settings=kernel_settings)
+    process_time = ProcessTime()
+    wp_settings = SystemSettings(process_time=process_time, kernel_settings=kernel_settings)
     nginx_settings = BalancerSettings(kernel_settings=kernel_settings)
     haproxy_settings = BalancerSettings(kernel_settings=kernel_settings)
     stand_settings = StandSettings([wp_settings], [nginx_settings], haproxy_settings)
