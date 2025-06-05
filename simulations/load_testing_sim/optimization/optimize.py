@@ -69,7 +69,7 @@ def objective(trial: optuna.Trial, dir_name: str, config: Dict[str, Any], optimi
     
     return degradation_rps, fail_rps
 
-def optimize_params(optimization_config: Dict[str, Any], dir_name: str, study_name: str = "params-optimization", n_trials: int = 10000, n_jobs: int = 2) -> Dict[str, Any]:
+def optimize_params(optimization_config: Dict[str, Any], dir_name: str, study_name: str = "params-optimization", n_trials: int = 10000, n_jobs: int = 4) -> Dict[str, Any]:
     os.makedirs(dir_name, exist_ok=True)
     optimizable_params = extract_optimizable_params(optimization_config)
     limits = optimization_config["limits"]
@@ -97,7 +97,7 @@ def optimize_params(optimization_config: Dict[str, Any], dir_name: str, study_na
     
     return best_params
 
-def optimize_time(optimization_config: Dict[str, Any], dir_name: str, study_name: str = "params-optimization", n_trials = 10000, n_jobs = 2) -> Dict[str, Any]:
+def optimize_time(optimization_config: Dict[str, Any], dir_name: str, study_name: str = "params-optimization", n_trials = 10000, n_jobs = 4) -> Dict[str, Any]:
     os.makedirs(dir_name, exist_ok=True)
     limits = optimization_config["limits"]
     optimizable_params = extract_optimizable_params(optimization_config)

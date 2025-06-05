@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const startOptimizationBtn = document.getElementById('start-optimization-btn');
     if (startOptimizationBtn) {
         startOptimizationBtn.addEventListener('click', () => {
-            console.log('Start request time optimization');
+            console.log('Start request time inference');
             const serverNum = parseInt(document.getElementById('server-num').value);
             const settings = {
                 request_settings: {},
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            console.log('Request Time Optimization settings:', settings);
+            console.log('Request Time Inference settings:', settings);
 
             fetch('/request-time-optimization', {
                 method: 'POST',
